@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Mental: Las Organizaciones Educativas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Logo UPEL */
+        .upel-logo {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 120px;
+            height: 120px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            z-index: 1000;
+            border: 3px solid #1e88e5;
+            overflow: hidden;
+        }
+
+        .upel-logo img {
+            width: 90%;
+            height: 90%;
+            object-fit: contain;
+        }
+
+        /* Contenedor principal */
+        #mindmap-container {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+            cursor: grab;
+            overflow: hidden;
+        }
+
+        #mindmap-container:active {
+            cursor: grabbing;
+        }
+
+        /* SVG para conectores */
+        #connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .connection-line {
+            fill: none;
+            stroke-width: 3;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        /* Nodos */
+        .node {
+            position: absolute;
+            padding: 15px 25px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-width: 180px;
+            max-width: 280px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            border: 3px solid transparent;
+            user-select: none;
+        }
+
+        .node:hover {
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+            z-index: 20;
+        }
+
+        .node.collapsed::after {
+            content: '+';
+            position: absolute;
+            bottom: -10px;
+            right: -10px;
+            background: #333;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* Formas de nodos */
+        .node-shape-square { border-radius: 12px; }
+        .node-shape-diamond { 
+            transform: rotate(45deg); 
+            width: 140px;
+            height: 140px;
+        }
+        .node-shape-diamond .node-content {
+            transform: rotate(-45deg);
+        }
+        .node-shape-circle { border-radius: 50%; width: 160px; height: 160px; }
+        .node-shape-triangle {
+            width: 0;
+            height: 0;
+            border-left: 80px solid transparent;
+            border-right: 80px solid transparent;
+            border-bottom: 140px solid;
+            background: transparent !important;
+            padding: 0;
+        }
+        .node-shape-triangle .node-content {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 140px;
+        }
+        .node-shape-pentagon {
+            clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+            width: 160px;
+            height: 150px;
+            padding-top: 40px;
+        }
+
+        /* Colores */
+        .color-red {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+            border-color: #c92a2a;
+            color: #000;
+        }
+        .color-yellow {
+            background: linear-gradient(135deg, #ffd93d 0%, #f9c846 100%);
+            border-color: #e67700;
+            color: #000;
+        }
+        .color-blue {
+            background: linear-gradient(135deg, #74c0fc 0%, #4dabf7 100%);
+            border-color: #1971c2;
+            color: #000;
+        }
+
+        .node-title {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }
+
+        .node-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #000;
+        }
+
+        .node-description {
+            font-size: 11px;
+            opacity: 0.9;
+            margin-top: 5px;
+            line-height: 1.3;
+        }
+
+        /* Nodo raíz especial */
+        .root-node {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ffd93d 50%, #74c0fc 100%);
+            border: 5px solid #333;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        /* Controles */
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.9);
+            padding: 10px 20px;
+            border-radius: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .control-btn:hover {
+            background: #f0f0f0;
+            transform: scale(1.1);
+        }
+
+        /* Búsqueda */
+        .search-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-box {
+            padding: 12px 20px;
+            border: 2px solid #1e88e5;
+            border-radius: 25px;
+            width: 300px;
+            font-size: 14px;
+            outline: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+
+        .search-box:focus {
+            width: 350px;
+            box-shadow: 0 4px 20px rgba(30,136,229,0.3);
+        }
+
+        .search-results {
+            position: absolute;
+            top: 50px;
+            left: 0;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            max-height: 300px;
+            overflow-y: auto;
+            width: 350px;
+            display: none;
+        }
+
+        .search-result-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+        }
+
+        .search-result-item:hover {
+            background: #f5f5f5;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+            z-index: 2000;
+            display: none;
+            pointer-events: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .tooltip h4 {
+            margin-bottom: 8px;
+            color: #ffd93d;
+            font-size: 14px;
+        }
+
+        /* Notificación */
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            z-index: 3000;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Créditos */
+        .credits {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 250px;
+            border-left: 4px solid #ff6b6b;
+        }
+
+        .credits h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .credits ul {
+            list-style: none;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .credits li {
+            margin-bottom: 5px;
+            padding-left: 15px;
+            position: relative;
+            animation: slideIn 0.5s ease forwards;
+            opacity: 0;
+        }
+
+        .credits li::before {
+            content: '▸';
+            position: absolute;
+            left: 0;
+            color: #1e88e5;
+        }
+
+        .credits li:nth-child(1) { animation-delay: 0.1s; }
+        .credits li:nth-child(2) { animation-delay: 0.2s; }
+        .credits li:nth-child(3) { animation-delay: 0.3s; }
+        .credits li:nth-child(4) { animation-delay: 0.4s; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Referencias */
+        .references {
+            position: fixed;
+            bottom: 20px;
+            right: 150px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            border-right: 4px solid #ffd93d;
+            display: none;
+        }
+
+        .references.show {
+            display: block;
+        }
+
+        .references h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .references-content {
+            font-size: 11px;
+            line-height: 1.4;
+            color: #555;
+        }
+
+        .ref-item {
+            margin-bottom: 8px;
+            padding: 8px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            border-left: 3px solid #1e88e5;
+        }
+
+        /* Botón de referencias */
+        .ref-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: #ffd93d;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1001;
+            transition: all 0.3s;
+        }
+
+        .ref-btn:hover {
+            transform: scale(1.1);
+            background: #fcc419;
+        }
+
+        /* Modal para enlaces */
+        .link-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 4000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .link-modal.show {
+            display: flex;
+        }
+
+        .link-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .link-list {
+            margin-top: 20px;
+        }
+
+        .link-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .link-item:hover {
+            background: #e3f2fd;
+            transform: translateX(5px);
+        }
+
+        .link-icon {
+            font-size: 20px;
+            color: #1e88e5;
+        }
+
+        /* Animación de pulso para nodos */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255,107,107, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(255,107,107, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255,107,107, 0); }
+        }
+
+        .node.highlighted {
+            animation: pulse 2s infinite;
+            border-color: #fff;
+            border-width: 4px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .upel-logo { width: 80px; height: 80px; top: 10px; right: 10px; }
+            .search-box { width: 200px; }
+            .search-box:focus { width: 250px; }
+            .credits { max-width: 200px; font-size: 11px; }
+            .references { right: 80px; max-width: 250px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Logo UPEL -->
+    <div class="upel-logo">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Logo_UPEL.png/600px-Logo_UPEL.png" alt="Logo UPEL" onerror="this.src='https://via.placeholder.com/120?text=UPEL'">
+    </div>
+
+    <!-- Búsqueda -->
+    <div class="search-container">
+        <input type="text" class="search-box" placeholder="🔍 Buscar en el mapa mental..." id="searchInput">
+        <div class="search-results" id="searchResults"></div>
+    </div>
+
+    <!-- Notificación -->
+    <div class="notification" id="notification">
+        <i class="fas fa-info-circle"></i>
+        <span id="notificationText">Abriendo recurso...</span>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- Créditos -->
+    <div class="credits">
+        <h3><i class="fas fa-users"></i> Créditos y Elaboración</h3>
+        <ul>
+            <li>Barragan Garcia Yanilsen Milena</li>
+            <li>Mattos Manjarres Cesil Alfonso</li>
+            <li>Matos Manjarres Ulises Stanly</li>
+            <li>Maz Lapeira Nini Johanna</li>
+        </ul>
+    </div>
+
+    <!-- Botón y Panel de Referencias -->
+    <button class="ref-btn" onclick="toggleReferences()" title="Ver Referencias Bibliográficas">
+        <i class="fas fa-book"></i>
+    </button>
+
+    <div class="references" id="referencesPanel">
+        <h3 onclick="toggleReferences()">
+            <span><i class="fas fa-book-open"></i> Referencias Bibliográficas</span>
+            <i class="fas fa-chevron-down"></i>
+        </h3>
+        <div class="references-content">
+            <p style="font-size: 10px; color: #888; margin-bottom: 10px;">(Normativa UPEL, 2024)</p>
+            <div class="ref-item">
+                <strong>Jiménez, C. R.</strong> (2021). La importancia de la comunicación y liderazgo en organizaciones educativas. <em>Revista Gestión en el Siglo XXI</em>, 6(11), 34-52.
+            </div>
+            <div class="ref-item">
+                <strong>Mayo, I. C.</strong> (2003). La estructura de las organizaciones educativas y sus múltiples implicaciones. Editorial Síntesis.
+            </div>
+            <div class="ref-item">
+                <strong>Reales Chacón, L. J. y Arce Aguirre, J. A.</strong> (2008). La organización educativa y su cultura. Editorial Universitaria.
+            </div>
+            <div class="ref-item">
+                <strong>Rondón, M. y Ammar, M.</strong> (2016). Gestión del talento humano en organizaciones educativas. <em>Revista Venezolana de Gerencia</em>, 21(74), 230-248.
+            </div>
+            <div class="ref-item">
+                <strong>Santos Guerra, M. Á.</strong> (1999). Organización para el desarrollo profesional. <em>Profesorado. Revista de currículum y formación del profesorado</em>, 3(1).
+            </div>
+        </div>
+    </div>
+
+    <!-- Controles -->
+    <div class="controls">
+        <button class="control-btn" onclick="zoomIn()" title="Zoom In"><i class="fas fa-plus"></i></button>
+        <button class="control-btn" onclick="zoomOut()" title="Zoom Out"><i class="fas fa-minus"></i></button>
+        <button class="control-btn" onclick="resetView()" title="Resetear Vista"><i class="fas fa-compress-arrows-alt"></i></button>
+        <button class="control-btn" onclick="expandAll()" title="Expandir Todo"><i class="fas fa-expand-alt"></i></button>
+        <button class="control-btn" onclick="collapseAll()" title="Colapsar Todo"><i class="fas fa-compress-alt"></i></button>
+    </div>
+
+    <!-- Modal de Enlaces -->
+    <div class="link-modal" id="linkModal">
+        <div class="link-modal-content">
+            <button class="close-modal" onclick="closeModal()"><i class="fas fa-times"></i></button>
+            <h2 id="modalTitle"><i class="fas fa-external-link-alt"></i> Recursos Disponibles</h2>
+            <div class="link-list" id="linkList"></div>
+        </div>
+    </div>
+
+    <!-- Contenedor del Mapa -->
+    <div id="mindmap-container">
+        <svg id="connections"></svg>
+        <div id="nodes-container"></div>
+    </div>
+
+    <script>
+        // Datos del mapa mental
+        const mindMapData = {
+            id: "root",
+            title: "Las Organizaciones Educativas",
+            type: "root",
+            color: "mixed",
+            shape: "circle",
+            icon: "fa-school",
+            description: "Eje central del estudio",
+            x: 0,
+            y: 0,
+            expanded: true,
+            children: [
+                {
+                    id: "concepto",
+                    title: "Concepto de Organización e Institución Educativa",
+                    color: "red",
+                    shape: "square",
+                    icon: "fa-lightbulb",
+                    description: "Diseño funcional, gestión y coordinación de recursos",
+                    tooltip: "La organización educativa es el diseño funcional, la gestión y la coordinación de recursos humanos, materiales y pedagógicos para lograr la calidad educativa y la convivencia.",
+                    expanded: false,
+                    children: [
+                        {
+                            id: "concepto-1",
+                            title: "Organizaciones Educativas (PDF)",
+                            color: "red",
+                            shape: "diamond",
+                            icon: "fa-file-pdf",
+                            description: "Documento base sobre diseño organizacional",
+                            links: [
+                                { type: "pdf", url: "https://cdn1.capacitateparaelempleo.org/cdn_aprende/assets/v8u4z5s.pdf", title: "Ver Documento PDF" }
+                            ]
+                        },
+                        {
+                            id: "concepto-2",
+                            title: "La Organización Escolar (Gairín)",
+                            color: "red",
+                            shape: "diamond",
+                            icon: "fa-book",
+                            description: "Contexto y Texto de Actuación",
+                            tooltip: "Texto base para entender por qué la escuela no es una empresa, sino una organización social",
+                            links: [
+                                { type: "pdf", url: "https://www.unter.org.ar/wp-content/uploads/2014/10/GSTN_Gairin-Sallan_2_Unidad_2.pdf", title: "Ver Documento Académico" }
+                            ]
+                        },
+                        {
+                            id: "concepto-3",
+                            title: "Gestión Educativa de Calidad",
+                            color: "red",
+                            shape: "triangle",
+                            icon: "fa-chart-line",
+                            description: "Revisión sistemática sobre gestión",
+                            links: [
+                                { type: "drive", url: "https://drive.google.com/file/d/1XQ7mWUR52P7rE0X9xc8ledUAT5mKx2Lb/view", title: "Ver Informe (Drive)" }
+                            ]
+                        },
+                        {
+                            id: "concepto-4",
+                            title: "¿Qué es una organización?",
+                            color: "red",
+                            shape: "pentagon",
+                            icon: "fa-video",
+                            description: "Video: Conceptos fundamentales",
+                            links: [
+                                { type: "video", url: "https://drive.google.com/file/d/1GT_15Rcc1hHlaBx1HMM5vqO8QT_oNREX/view", title: "Ver Video Educativo" }
+                            ]
+                        },
+                        {
+                            id: "concepto-5",
+                            title: "Podcast Gestión Educativa",
+                            color: "red",
+                            shape: "circle",
+                            icon: "fa-podcast",
+                            description: "Apple Podcasts",
+                            links: [
+                                { type: "podcast", url: "https://podcasts.apple.com/co/podcast/gesti%C3%B3n-educativa/id1526480742", title: "Escuchar Podcast" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "caracteristicas",
+                    title: "Características de las Organizaciones Educativas",
+                    color: "yellow",
+                    shape: "square",
+                    icon: "fa-star",
+                    description: "Rasgos distintivos y específicos",
+                    tooltip: "Coordinación de actividades para el máximo aprovechamiento de elementos materiales, técnicos y humanos",
+                    expanded: false,
+                    children: [
+                        {
+                            id: "carac-1",
+                            title: "Isaac Guzmán Valdivia (Video)",
+                            color: "yellow",
+                            shape: "circle",
+                            icon: "fa-youtube",
+                            description: "Coordinación de actividades organizacionales",
+                            links: [
+                                { type: "youtube", url: "https://www.youtube.com/watch?v=GgKi3lt20Wg", title: "Ver en YouTube" }
+                            ]
+                        },
+                        {
+                            id: "carac-2",
+                            title: "10 Rasgos de la Escuela (Santos Guerra)",
+                            color: "yellow",
+                            shape: "diamond",
+                            icon: "fa-image",
+                            description: "Infografía de síntesis",
+                            links: [
+                                { type: "drive", url: "https://drive.google.com/file/d/1XQ7mWUR52P7rE0X9xc8ledUAT5mKx2Lb/view", title: "Ver Infografía" }
+                            ]
+                        },
+                        {
+                            id: "carac-3",
+                            title: "Sentido de las Organizaciones Educativas",
+                            color: "yellow",
+                            shape: "square",
+                            icon: "fa-globe",
+                            description: "Artículo académico",
+                            links: [
+                                { type: "web", url: "https://www.educacionyeducadores.com/article/view/1234", title: "Leer Artículo" }
+                            ]
+                        },
+                        {
+                            id: "carac-4",
+                            title: "Escuela como Organización que Aprende",
+                            color: "yellow",
+                            shape: "triangle",
+                            icon: "fa-book-reader",
+                            description: "Vulnerabilidad y adaptación",
+                            tooltip: "Artículo clásico sobre la vulnerabilidad y capacidad de adaptación de las IE",
+                            links: [
+                                { type: "pdf", url: "#", title: "La-Escuela-como-una-Organizacin-que-aprende-2018.pdf" }
+                            ]
+                        },
+                        {
+                            id: "carac-5",
+                            title: "Cultura Organizacional en la Escuela",
+                            color: "yellow",
+                            shape: "pentagon",
+                            icon: "fa-video",
+                            description: "El pegamento que une componentes",
+                            links: [
+                                { type: "youtube", url: "https://www.youtube.com/watch?v=RLm2KgGmHMA", title: "Ver Video Explicativo" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "elementos",
+                    title: "Elementos que conforman las OE",
+                    color: "blue",
+                    shape: "square",
+                    icon: "fa-puzzle-piece",
+                    description: "Componentes estructurales esenciales",
+                    tooltip: "Recursos Humanos, Materiales, Funcionales, Pedagógicos y Cultura Organizativa",
+                    expanded: false,
+                    children: [
+                        {
+                            id: "elem-1",
+                            title: "Recursos Humanos",
+                            color: "blue",
+                            shape: "circle",
+                            icon: "fa-users",
+                            description: "Protagonistas del hecho educativo"
+                        },
+                        {
+                            id: "elem-2",
+                            title: "Recursos Materiales",
+                            color: "blue",
+                            shape: "square",
+                            icon: "fa-building",
+                            description: "Infraestructura y herramientas físicas"
+                        },
+                        {
+                            id: "elem-3",
+                            title: "Recursos Funcionales y Formales",
+                            color: "blue",
+                            shape: "diamond",
+                            icon: "fa-cogs",
+                            description: "Elementos de gestión y orden"
+                        },
+                        {
+                            id: "elem-4",
+                            title: "Elementos Pedagógicos y Curriculares",
+                            color: "blue",
+                            shape: "triangle",
+                            icon: "fa-graduation-cap",
+                            description: "Eje formativo institucional"
+                        },
+                        {
+                            id: "elem-5",
+                            title: "Cultura Organizativa",
+                            color: "blue",
+                            shape: "pentagon",
+                            icon: "fa-heart",
+                            description: "Valores, creencias y principios"
+                        },
+                        {
+                            id: "elem-6",
+                            title: "Proyecto Educativo Institucional (PEI)",
+                            color: "blue",
+                            shape: "circle",
+                            icon: "fa-file-alt",
+                            description: "Herramienta fundamental de gestión",
+                            links: [
+                                { type: "web", url: "https://revmic.com/index.php/IC/article/view/179/338", title: "Ver Editorial" }
+                            ]
+                        },
+                        {
+                            id: "elem-7",
+                            title: "Características de Organizaciones",
+                            color: "blue",
+                            shape: "square",
+                            icon: "fa-video",
+                            description: "Resumen visual",
+                            links: [
+                                { type: "youtube", url: "https://www.youtube.com/watch?v=YZegQXTb8y8", title: "Ver Video" }
+                            ]
+                        },
+                        {
+                            id: "elem-8",
+                            title: "Características Definitorias",
+                            color: "blue",
+                            shape: "diamond",
+                            icon: "fa-slideshare",
+                            description: "Presentación académica",
+                            links: [
+                                { type: "web", url: "https://es.slideshare.net/slideshow/caracteristicas-que-definen-las-organizaciones-educativas-pptx/273024245", title: "Ver en SlideShare" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "importancia",
+                    title: "Importancia de las Organizaciones Educativas",
+                    color: "red",
+                    shape: "square",
+                    icon: "fa-trophy",
+                    description: "Impacto social y desarrollo humano",
+                    tooltip: "Enfoque en el contrato social y la relevancia educativa",
+                    expanded: false,
+                    children: [
+                        {
+                            id: "imp-1",
+                            title: "Gestión para Calidad Educativa",
+                            color: "red",
+                            shape: "triangle",
+                            icon: "fa-award",
+                            description: "Documento fundamental",
+                            links: [
+                                { type: "drive", url: "https://drive.google.com/file/d/14xx5WRnxIYrlS_xh6POMikWdBRkmBqpA/view", title: "Ver Documento" }
+                            ]
+                        },
+                        {
+                            id: "imp-2",
+                            title: "Formación del Ciudadano siglo XXI",
+                            color: "red",
+                            shape: "square",
+                            icon: "fa-user-graduate",
+                            description: "Perspectiva universitaria",
+                            links: [
+                                { type: "pdf", url: "https://revistauls.lasalle.edu.co/files-articles/ruls/vol2013/iss61/12/fulltext.pdf", title: "Leer Artículo" }
+                            ]
+                        },
+                        {
+                            id: "imp-3",
+                            title: "Video: Formación Ciudadana",
+                            color: "red",
+                            shape: "circle",
+                            icon: "fa-play-circle",
+                            description: "Análisis audiovisual",
+                            links: [
+                                { type: "youtube", url: "https://www.youtube.com/watch?v=Q3QTcufs94E", title: "Ver Video" }
+                            ]
+                        },
+                        {
+                            id: "imp-4",
+                            title: "Informe Global UNESCO",
+                            color: "red",
+                            shape: "diamond",
+                            icon: "fa-globe-americas",
+                            description: "Relevancia como contrato social",
+                            tooltip: "Documento más actualizado sobre la relevancia de la educación como contrato social",
+                            links: [
+                                { type: "web", url: "https://unesdoc.unesco.org/ark:/48223/pf0000379381_spa", title: "Ver Informe" }
+                            ]
+                        },
+                        {
+                            id: "imp-5",
+                            title: "Educación y Movilidad Social",
+                            color: "red",
+                            shape: "pentagon",
+                            icon: "fa-rocket",
+                            description: "Video motivacional/académico",
+                            links: [
+                                { type: "youtube", url: "https://www.youtube.com/watch?v=feFXuanzq0A", title: "Ver Video" }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // Variables globales
+        let scale = 1;
+        let translateX = window.innerWidth / 2;
+        let translateY = 100;
+        let isDragging = false;
+        let dragNode = null;
+        let dragOffset = { x: 0, y: 0 };
+        let nodes = [];
+        let connections = [];
+
+        const container = document.getElementById('mindmap-container');
+        const nodesContainer = document.getElementById('nodes-container');
+        const svgContainer = document.getElementById('connections');
+        const tooltip = document.getElementById('tooltip');
+
+        // Inicialización
+        function init() {
+            renderMap();
+            setupEventListeners();
+            centerMap();
+        }
+
+        // Renderizar mapa
+        function renderMap() {
+            nodesContainer.innerHTML = '';
+            svgContainer.innerHTML = '';
+            nodes = [];
+            connections = [];
+            
+            const rootX = 0;
+            const rootY = 0;
+            
+            renderNode(mindMapData, rootX, rootY, null, 0);
+            drawConnections();
+            updateTransform();
+        }
+
+        function renderNode(data, x, y, parent, level) {
+            const node = document.createElement('div');
+            node.className = `node node-shape-${data.shape || 'square'} color-${data.color || 'blue'}`;
+            if (data.type === 'root') node.classList.add('root-node');
+            if (data.children && data.children.length > 0 && !data.expanded) node.classList.add('collapsed');
+            
+            node.id = `node-${data.id}`;
+            node.style.left = `${x}px`;
+            node.style.top = `${y}px`;
+            
+            // Contenido según forma
+            const contentClass = (data.shape === 'diamond' || data.shape === 'triangle') ? 'node-content' : '';
+            
+            node.innerHTML = `
+                <div class="${contentClass}">
+                    <i class="fas ${data.icon || 'fa-circle'} node-icon"></i>
+                    <div class="node-title">${data.title}</div>
+                    ${data.description ? `<div class="node-description">${data.description}</div>` : ''}
+                </div>
+            `;
+
+            // Eventos
+            node.addEventListener('click', (e) => handleNodeClick(e, data));
+            node.addEventListener('mouseenter', (e) => showTooltip(e, data));
+            node.addEventListener('mouseleave', hideTooltip);
+            node.addEventListener('mousedown', (e) => startDrag(e, data));
+            
+            nodesContainer.appendChild(node);
+            
+            const nodeObj = { 
+                id: data.id, 
+                element: node, 
+                x: x, 
+                y: y, 
+                data: data, 
+                parent: parent,
+                level: level 
+            };
+            nodes.push(nodeObj);
+
+            // Renderizar hijos si está expandido
+            if (data.expanded && data.children) {
+                const childY = y + (data.type === 'root' ? 350 : 200);
+                const spacing = data.children.length > 4 ? 250 : 300;
+                const totalWidth = (data.children.length - 1) * spacing;
+                const startX = x - totalWidth / 2;
+
+                data.children.forEach((child, index) => {
+                    const childX = startX + index * spacing;
+                    renderNode(child, childX, childY, nodeObj, level + 1);
+                });
+            }
+
+            return nodeObj;
+        }
+
+        function drawConnections() {
+            connections = [];
+            nodes.forEach(node => {
+                if (node.parent) {
+                    const startX = node.parent.x + (node.parent.data.type === 'root' ? 150 : 90);
+                    const startY = node.parent.y + (node.parent.data.type === 'root' ? 300 : 80);
+                    const endX = node.x + 90;
+                    const endY = node.y;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    
+                    // Curva Bezier elástica
+                    const cp1x = startX;
+                    const cp1y = startY + (endY - startY) / 2;
+                    const cp2x = endX;
+                    const cp2y = startY + (endY - startY) / 2;
+
+                    const d = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
+                    
+                    path.setAttribute('d', d);
+                    path.setAttribute('class', 'connection-line');
+                    path.setAttribute('stroke', getColorCode(node.data.color));
+                    
+                    svgContainer.appendChild(path);
+                    connections.push({ path, start: node.parent, end: node });
+                }
+            });
+        }
+
+        function getColorCode(color) {
+            const colors = {
+                'red': '#ff6b6b',
+                'yellow': '#ffd93d',
+                'blue': '#74c0fc',
+                'mixed': '#333'
+            };
+            return colors[color] || '#999';
+        }
+
+        // Interacciones
+        function handleNodeClick(e, data) {
+            e.stopPropagation();
+            
+            if (data.children && data.children.length > 0) {
+                data.expanded = !data.expanded;
+                showNotification(data.expanded ? 'Expandiendo rama...' : 'Colapsando rama...');
+                renderMap();
+            } else if (data.links && data.links.length > 0) {
+                showLinksModal(data);
+            }
+        }
+
+        function showLinksModal(data) {
+            const modal = document.getElementById('linkModal');
+            const title = document.getElementById('modalTitle');
+            const list = document.getElementById('linkList');
+            
+            title.innerHTML = `<i class="${data.icon || 'fa-link'}"></i> ${data.title}`;
+            list.innerHTML = '';
+            
+            data.links.forEach(link => {
+                const item = document.createElement('a');
+                item.className = 'link-item';
+                item.href = link.url;
+                item.target = '_blank';
+                item.onclick = () => {
+                    showNotification(`Abriendo: ${link.title}`);
+                    closeModal();
+                };
+                
+                const iconClass = {
+                    'pdf': 'fa-file-pdf',
+                    'youtube': 'fa-youtube',
+                    'video': 'fa-video',
+                    'drive': 'fa-google-drive',
+                    'podcast': 'fa-podcast',
+                    'web': 'fa-globe'
+                }[link.type] || 'fa-external-link-alt';
+                
+                item.innerHTML = `
+                    <i class="fas ${iconClass} link-icon"></i>
+                    <div>
+                        <div style="font-weight: bold;">${link.title}</div>
+                        <div style="font-size: 11px; color: #666; margin-top: 2px;">${link.url}</div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+            
+            modal.classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('linkModal').classList.remove('show');
+        }
+
+        function showTooltip(e, data) {
+            if (!data.tooltip && !data.links) return;
+            
+            let content = '';
+            if (data.tooltip) {
+                content += `<h4><i class="fas fa-info-circle"></i> Información</h4><p>${data.tooltip}</p>`;
+            }
+            if (data.links && data.links.length > 0) {
+                content += `<h4 style="margin-top: 10px;"><i class="fas fa-link"></i> Enlaces disponibles</h4>`;
+                data.links.forEach(link => {
+                    content += `<div style="margin: 5px 0; font-size: 11px;">• ${link.type.toUpperCase()}: ${link.title}</div>`;
+                });
+                content += `<div style="margin-top: 8px; padding: 5px; background: rgba(255,255,255,0.1); border-radius: 4px; text-align: center;"><i class="fas fa-mouse-pointer"></i> Click para abrir</div>`;
+            }
+            
+            tooltip.innerHTML = content;
+            tooltip.style.display = 'block';
+            
+            const rect = e.target.getBoundingClientRect();
+            tooltip.style.left = `${rect.right + 10}px`;
+            tooltip.style.top = `${rect.top}px`;
+            
+            // Ajustar si se sale de la pantalla
+            if (rect.right + 320 > window.innerWidth) {
+                tooltip.style.left = `${rect.left - 310}px`;
+            }
+        }
+
+        function hideTooltip() {
+            tooltip.style.display = 'none';
+        }
+
+        function showNotification(text) {
+            const notif = document.getElementById('notification');
+            const notifText = document.getElementById('notificationText');
+            notifText.textContent = text;
+            notif.classList.add('show');
+            setTimeout(() => notif.classList.remove('show'), 2000);
+        }
+
+        // Drag and Drop
+        function startDrag(e, data) {
+            if (e.button !== 0) return; // Solo clic izquierdo
+            isDragging = true;
+            dragNode = nodes.find(n => n.id === data.id);
+            
+            const rect = container.getBoundingClientRect();
+            dragOffset.x = (e.clientX - rect.left - translateX) / scale - dragNode.x;
+            dragOffset.y = (e.clientY - rect.top - translateY) / scale - dragNode.y;
+            
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', stopDrag);
+        }
+
+        function onDrag(e) {
+            if (!isDragging || !dragNode) return;
+            e.preventDefault();
+            
+            const rect = container.getBoundingClientRect();
+            const newX = (e.clientX - rect.left - translateX) / scale - dragOffset.x;
+            const newY = (e.clientY - rect.top - translateY) / scale - dragOffset.y;
+            
+            dragNode.x = newX;
+            dragNode.y = newY;
+            dragNode.element.style.left = `${newX}px`;
+            dragNode.element.style.top = `${newY}px`;
+            
+            drawConnections();
+        }
+
+        function stopDrag() {
+            isDragging = false;
+            dragNode = null;
+            document.removeEventListener('mousemove', onDrag);
+            document.removeEventListener('mouseup', stopDrag);
+        }
+
+        // Zoom y Pan
+        function setupEventListeners() {
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                scale *= delta;
+                scale = Math.min(Math.max(0.3, scale), 3);
+                updateTransform();
+            });
+
+            // Pan con clic derecho o middle
+            let isPanning = false;
+            let panStart = { x: 0, y: 0 };
+
+            container.addEventListener('mousedown', (e) => {
+                if (e.button === 1 || (e.button === 0 && e.altKey)) {
+                    isPanning = true;
+                    panStart = { x: e.clientX - translateX, y: e.clientY - translateY };
+                    container.style.cursor = 'grabbing';
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isPanning) {
+                    translateX = e.clientX - panStart.x;
+                    translateY = e.clientY - panStart.y;
+                    updateTransform();
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isPanning = false;
+                container.style.cursor = 'grab';
+            });
+
+            // Búsqueda predictiva
+            const searchInput = document.getElementById('searchInput');
+            const searchResults = document.getElementById('searchResults');
+            
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    searchResults.style.display = 'none';
+                    return;
+                }
+                
+                const matches = [];
+                function searchNode(node, path = []) {
+                    const currentPath = [...path, node.title];
+                    if (node.title.toLowerCase().includes(query) || 
+                        (node.description && node.description.toLowerCase().includes(query))) {
+                        matches.push({ node, path: currentPath });
+                    }
+                    if (node.children) {
+                        node.children.forEach(child => searchNode(child, currentPath));
+                    }
+                }
+                searchNode(mindMapData);
+                
+                searchResults.innerHTML = '';
+                matches.forEach(match => {
+                    const div = document.createElement('div');
+                    div.className = 'search-result-item';
+                    div.innerHTML = `
+                        <div style="font-weight: bold;">${match.node.title}</div>
+                        <div style="font-size: 11px; color: #666;">${match.path.join(' > ')}</div>
+                    `;
+                    div.onclick = () => {
+                        highlightNode(match.node.id);
+                        searchResults.style.display = 'none';
+                        searchInput.value = '';
+                    };
+                    searchResults.appendChild(div);
+                });
+                
+                searchResults.style.display = matches.length ? 'block' : 'none';
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-container')) {
+                    searchResults.style.display = 'none';
+                }
+            });
+        }
+
+        function updateTransform() {
+            nodesContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            svgContainer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        }
+
+        function zoomIn() {
+            scale *= 1.2;
+            updateTransform();
+        }
+
+        function zoomOut() {
+            scale *= 0.8;
+            updateTransform();
+        }
+
+        function resetView() {
+            scale = 1;
+            translateX = window.innerWidth / 2;
+            translateY = 100;
+            updateTransform();
+            centerMap();
+        }
+
+        function centerMap() {
+            const rootNode = nodes.find(n => n.data.type === 'root');
+            if (rootNode) {
+                translateX = window.innerWidth / 2 - 150;
+                translateY = 50;
+                updateTransform();
+            }
+        }
+
+        function expandAll() {
+            function expand(node) {
+                node.expanded = true;
+                if (node.children) node.children.forEach(expand);
+            }
+            expand(mindMapData);
+            renderMap();
+            showNotification('Todas las ramas expandidas');
+        }
+
+        function collapseAll() {
+            function collapse(node) {
+                if (node.type !== 'root') node.expanded = false;
+                if (node.children) node.children.forEach(collapse);
+            }
+            collapse(mindMapData);
+            renderMap();
+            showNotification('Todas las ramas colapsadas');
+        }
+
+        function highlightNode(nodeId) {
+            // Expandir padres
+            function findAndExpand(node, targetId, path = []) {
+                if (node.id === targetId) {
+                    path.forEach(n => n.expanded = true);
+                    return true;
+                }
+                if (node.children) {
+                    for (let child of node.children) {
+                        if (findAndExpand(child, targetId, [...path, node])) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            
+            findAndExpand(mindMapData, nodeId);
+            renderMap();
+            
+            // Resaltar
+            setTimeout(() => {
+                const nodeEl = document.getElementById(`node-${nodeId}`);
+                if (nodeEl) {
+                    nodeEl.classList.add('highlighted');
+                    nodeEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                    setTimeout(() => nodeEl.classList.remove('highlighted'), 3000);
+                }
+            }, 100);
+        }
+
+        function toggleReferences() {
+            const panel = document.getElementById('referencesPanel');
+            panel.classList.toggle('show');
+        }
+
+        // Iniciar
+        window.onload = init;
+    </script>
+</body>
+</html>
