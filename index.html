@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mapa Mental - Gestión del Cambio en Organizaciones Educativas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --upel-blue: #003366;
+            --upel-blue-light: #004d99;
+            --bg-color: #e3f2fd;
+            --bg-gradient-start: #bbdefb;
+            --bg-gradient-end: #90caf9;
+            --text-dark: #000000;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(180deg, #e3f2fd 0%, #bbdefb 50%, #90caf9 100%);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--upel-blue);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,51,102,0.4);
+            height: 60px;
+        }
+
+        .title {
+            color: #FFD700;
+            font-size: 1.1em;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .title::before {
+            content: "🎓";
+            font-size: 1.3em;
+        }
+
+        .search-container {
+            position: relative;
+            width: 280px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 18px;
+            border: 3px solid #FFD700;
+            border-radius: 25px;
+            background: white;
+            font-size: 13px;
+            outline: none;
+            transition: all 0.3s ease;
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        .search-input:focus {
+            box-shadow: 0 0 20px rgba(255,215,0,0.6);
+            transform: scale(1.02);
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 10px;
+            margin-top: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 1001;
+            border: 2px solid var(--upel-blue);
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #ddd;
+            transition: background 0.2s;
+            font-size: 13px;
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        .search-item:hover {
+            background: #FFD700;
+            color: var(--upel-blue);
+        }
+
+        /* Contenedor del mapa */
+        #mindmap-container {
+            width: 100vw;
+            height: calc(100vh - 60px);
+            margin-top: 60px;
+            cursor: grab;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, #e3f2fd 0%, #bbdefb 100%);
+        }
+
+        #mindmap-container.grabbing {
+            cursor: grabbing;
+        }
+
+        #mindmap-svg {
+            width: 100%;
+            height: 100%;
+            transform-origin: center center;
+        }
+
+        /* Nodos - ESTILOS MEJORADOS */
+        .node-group {
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .node-group:hover {
+            transform: scale(1.05);
+        }
+
+        .node-shape {
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+            transition: all 0.3s ease;
+            stroke-width: 3;
+        }
+
+        .node-group:hover .node-shape {
+            filter: drop-shadow(0 8px 16px rgba(0,0,0,0.3));
+            stroke-width: 4;
+        }
+
+        .node-text {
+            font-size: 14px;
+            font-weight: 700;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            fill: #000000;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+            letter-spacing: 0.3px;
+        }
+
+        .node-icon {
+            font-size: 24px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+
+        /* Colores por nivel - TODOS con fuente negra */
+        .level-0 .node-shape { 
+            fill: #fff3e0; 
+            stroke: var(--upel-blue); 
+        }
+        .level-0 .node-text { 
+            fill: #000000; 
+            font-size: 16px; 
+            font-weight: 800;
+        }
+        
+        .level-1 .node-shape { 
+            fill: #e1f5fe; 
+            stroke: var(--upel-blue); 
+        }
+        .level-1 .node-text { 
+            fill: #000000; 
+            font-size: 14px;
+            font-weight: 700;
+        }
+        
+        .level-2 .node-shape { 
+            fill: #f3e5f5; 
+            stroke: #7b1fa2; 
+        }
+        .level-2 .node-text { 
+            fill: #000000; 
+            font-size: 13px;
+            font-weight: 700;
+        }
+        
+        .level-3 .node-shape { 
+            fill: #e8f5e9; 
+            stroke: #2e7d32; 
+        }
+        .level-3 .node-text { 
+            fill: #000000; 
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* Iconos redondos adicionales */
+        .icon-circle {
+            fill: #ffffff;
+            stroke: var(--upel-blue);
+            stroke-width: 2;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+        }
+
+        /* Líneas de conexión */
+        .connection {
+            fill: none;
+            stroke: var(--upel-blue);
+            stroke-width: 2.5;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+            stroke-linecap: round;
+        }
+
+        .connection:hover {
+            stroke-width: 4;
+            opacity: 1;
+            stroke: #228B22;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: rgba(0,51,102,0.95);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            max-width: 300px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+            border-left: 5px solid #FFD700;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            line-height: 1.5;
+            font-weight: 500;
+        }
+
+        .tooltip.active {
+            opacity: 1;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(8px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .book-modal {
+            width: 750px;
+            max-height: 90vh;
+            background: linear-gradient(to right, #8B4513 0%, #A0522D 3%, #FFF8DC 3%, #FFF8DC 97%, #8B4513 97%, #A0522D 100%);
+            border-radius: 15px;
+            padding: 35px;
+            position: relative;
+            transform: perspective(1000px) rotateY(-90deg);
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 30px 100px rgba(0,0,0,0.7);
+            overflow-y: auto;
+        }
+
+        .modal-overlay.active .book-modal {
+            transform: perspective(1000px) rotateY(0deg);
+        }
+
+        .book-content {
+            background: rgba(255,255,255,0.98);
+            padding: 35px;
+            border-radius: 10px;
+            margin: 0 15px;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.1);
+        }
+
+        .book-title {
+            color: var(--upel-blue);
+            font-size: 1.8em;
+            margin-bottom: 30px;
+            border-bottom: 5px solid #FFD700;
+            padding-bottom: 15px;
+            text-align: center;
+            font-weight: 900;
+        }
+
+        .reference-item {
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-left: 6px solid #228B22;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--text-dark);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .reference-item:hover {
+            transform: translateX(8px);
+            background: #f8f9fa;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 25px;
+            right: 30px;
+            background: var(--upel-blue);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 28px;
+            transition: all 0.3s;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+            font-weight: bold;
+        }
+
+        .close-btn:hover {
+            background: #FFD700;
+            color: var(--upel-blue);
+            transform: rotate(90deg) scale(1.1);
+        }
+
+        /* Controles de zoom */
+        .zoom-controls {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .zoom-btn {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            border: 4px solid var(--upel-blue);
+            background: white;
+            color: var(--upel-blue);
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+        }
+
+        .zoom-btn:hover {
+            background: var(--upel-blue);
+            color: #FFD700;
+            transform: scale(1.15);
+            border-color: #FFD700;
+        }
+
+        /* Botón de referencias */
+        .ref-btn {
+            position: fixed;
+            bottom: 25px;
+            left: 25px;
+            background: linear-gradient(135deg, #FFD700, #FFE44D);
+            color: var(--upel-blue);
+            border: 4px solid var(--upel-blue);
+            padding: 16px 32px;
+            border-radius: 35px;
+            font-weight: 900;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .ref-btn:hover {
+            transform: translateY(-5px) scale(1.05);
+            background: linear-gradient(135deg, var(--upel-blue), var(--upel-blue-light));
+            color: #FFD700;
+            border-color: #FFD700;
+        }
+
+        /* Créditos */
+        .credits-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, var(--upel-blue) 0%, rgba(0,51,102,0.98) 70%, transparent);
+            padding: 30px 20px 25px;
+            text-align: center;
+            color: white;
+            transform: translateY(100%);
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+        }
+
+        .credits-container.show {
+            transform: translateY(0);
+        }
+
+        .credits-title {
+            font-size: 1.4em;
+            margin-bottom: 20px;
+            color: #FFD700;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            font-weight: 900;
+        }
+
+        .credits-names {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            flex-wrap: wrap;
+            font-size: 1em;
+        }
+
+        .credit-name {
+            opacity: 0;
+            animation: fadeInUp 0.6s forwards;
+            padding: 12px 25px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 30px;
+            border: 3px solid #FFD700;
+            backdrop-filter: blur(10px);
+            font-weight: 700;
+        }
+
+        .credit-name:nth-child(1) { animation-delay: 0.1s; }
+        .credit-name:nth-child(2) { animation-delay: 0.25s; }
+        .credit-name:nth-child(3) { animation-delay: 0.4s; }
+        .credit-name:nth-child(4) { animation-delay: 0.55s; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .toggle-credits {
+            position: fixed;
+            bottom: 95px;
+            left: 25px;
+            background: var(--upel-blue);
+            color: #FFD700;
+            border: 3px solid #FFD700;
+            padding: 14px 28px;
+            border-radius: 30px;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.3s;
+            font-weight: 800;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            font-size: 14px;
+        }
+
+        .toggle-credits:hover {
+            background: #228B22;
+            color: white;
+            border-color: white;
+            transform: translateY(-3px);
+        }
+
+        /* Loader */
+        .loader {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5em;
+            color: var(--upel-blue);
+            z-index: 3000;
+            animation: pulse 1.5s infinite;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                height: auto;
+                padding: 10px;
+            }
+            .title {
+                font-size: 0.9em;
+            }
+            .search-container {
+                width: 100%;
+                margin-top: 8px;
+            }
+            #mindmap-container {
+                margin-top: 100px;
+                height: calc(100vh - 100px);
+            }
+            .book-modal {
+                width: 95%;
+                padding: 20px;
+            }
+            .credits-names {
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="title">Gestión del Cambio en Organizaciones Educativas</div>
+        <div class="search-container">
+            <input type="text" class="search-input" placeholder="🔍 Buscar nodo..." id="searchInput">
+            <div class="search-results" id="searchResults"></div>
+        </div>
+    </div>
+
+    <!-- Loader -->
+    <div class="loader" id="loader">📚</div>
+
+    <!-- Contenedor del Mapa Mental -->
+    <div id="mindmap-container">
+        <svg id="mindmap-svg"></svg>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- Modal de Referencias -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="book-modal">
+            <button class="close-btn" onclick="closeModal()">×</button>
+            <div class="book-content">
+                <h2 class="book-title">📚 Referencias Bibliográficas<br><small style="font-size:0.6em; color:#555;">(Normativa UPEL, 2022)</small></h2>
+                
+                <div class="reference-item">
+                    <strong>Jiménez, C. R. (2021).</strong> La importancia de la comunicación y liderazgo en organizaciones educativas. <em>Revista Gestión en el Siglo XXI</em>, 6(11), 34-52.
+                </div>
+                
+                <div class="reference-item">
+                    <strong>Mayo, I. C. (2003).</strong> La estructura de las organizaciones educativas y sus múltiples implicaciones. Editorial Síntesis.
+                </div>
+                
+                <div class="reference-item">
+                    <strong>Reales Chacón, L. J. y Arce Aguirre, J. A. (2008).</strong> La organización educativa y su cultura. Editorial Universitaria.
+                </div>
+                
+                <div class="reference-item">
+                    <strong>Rondón, M. y Ammar, M. (2016).</strong> Gestión del talento humano en organizaciones educativas. <em>Revista Venezolana de Gerencia</em>, 21(74), 230-248.
+                </div>
+                
+                <div class="reference-item">
+                    <strong>Santos Guerra, M. Á. (1999).</strong> Organización para el desarrollo profesional. <em>Profesorado. Revista de currículum y formación del profesorado</em>, 3(1).
+                </div>
+                
+                <div class="reference-item">
+                    <strong>Gairín, J.</strong> La Organización Escolar: Contexto y Texto de Actuación. UNTER.
+                </div>
+                
+                <div class="reference-item">
+                    <strong>UNESCO (2021).</strong> Reimaginar juntos nuestros futuros: Un nuevo contrato social para la educación.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones -->
+    <button class="ref-btn" onclick="openModal()">
+        <span>📖</span> Ver Referencias
+    </button>
+    
+    <button class="toggle-credits" onclick="toggleCredits()">👥 Ver Créditos</button>
+
+    <!-- Créditos -->
+    <div class="credits-container" id="creditsContainer">
+        <div class="credits-title">Elaboración del Mapa Mental</div>
+        <div class="credits-names">
+            <div class="credit-name">BARRAGAN GARCIA YANILSEN MILENA</div>
+            <div class="credit-name">MATTOS MANJARRES CESIL ALFONSO</div>
+            <div class="credit-name">MATOS MANJARRES ULISES STANLY</div>
+            <div class="credit-name">MAZ LAPEIRA NINI JOHANNA</div>
+        </div>
+    </div>
+
+    <!-- Controles de Zoom -->
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()" title="Acercar">+</button>
+        <button class="zoom-btn" onclick="resetZoom()" title="Resetear vista">⌂</button>
+        <button class="zoom-btn" onclick="zoomOut()" title="Alejar">−</button>
+    </div>
+
+    <script>
+        // Datos del Mapa Mental - Estructura de 4 niveles en cascada
+        const mindmapData = {
+            id: "root",
+            label: "Gestión del Cambio\nen Organizaciones\nEducativas",
+            level: 0,
+            type: "hexagon",
+            icon: "🎓",
+            description: "Mapa mental interactivo sobre gestión y estructura de organizaciones educativas. Incluye teoría de Gairín, Santos Guerra y UNESCO.",
+            children: [
+                {
+                    id: "concepto",
+                    label: "Concepto y\nDefinición",
+                    level: 1,
+                    type: "triangle",
+                    icon: "🏛️",
+                    description: "Fundamentos teóricos sobre qué es una organización educativa según Gairín y Chiavenato",
+                    children: [
+                        {
+                            id: "teoria-sistemas",
+                            label: "Teoría General\nde Sistemas",
+                            level: 2,
+                            type: "circle",
+                            icon: "⚙️",
+                            description: "Enfoque sistémico aplicado a organizaciones educativas",
+                            children: [
+                                {
+                                    id: "video-sistemas",
+                                    label: "Video:\n¿Qué es una\norganización?",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "▶️",
+                                    description: "Conceptos fundamentales de TGS aplicados a organizaciones educativas.",
+                                    link: "https://drive.google.com/file/d/1GT_15Rcc1hHlaBx1HMM5vqO8QT_oNREX/view?usp=sharing "
+                                },
+                                {
+                                    id: "doc-gairin",
+                                    label: "Doc. Gairín\n(UNTER)",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "📄",
+                                    description: "La Organización Escolar: Contexto y Texto de Actuación. Texto base sobre por qué la escuela es organización social.",
+                                    link: "https://www.unter.org.ar/wp-content/uploads/2014/10/GSTN_Gairin-Sallan_2_Unidad_2.pdf "
+                                }
+                            ]
+                        },
+                        {
+                            id: "escuela-social",
+                            label: "Escuela como\nOrganización Social",
+                            level: 2,
+                            type: "circle",
+                            icon: "👥",
+                            description: "Diferencias entre escuela como organización social vs empresa",
+                            children: [
+                                {
+                                    id: "unir-web",
+                                    label: "Artículo UNIR\nOrganización Escolar",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🌐",
+                                    description: "Concepto moderno de organización escolar y sus particularidades.",
+                                    link: "https://www.unir.net/revista/educacion/organizacion-escolar/ "
+                                },
+                                {
+                                    id: "escuela-aprende",
+                                    label: "PDF: Escuela\nOrganización\nque Aprende",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "📚",
+                                    description: "Documento clásico sobre vulnerabilidad y capacidad de adaptación de las instituciones educativas.",
+                                    link: "https://valoras.uc.cl/images/centro-recursos/equipo/FormacionDeComunidad/Fichas/La-Escuela-como-una-Organizacin-que-aprende-2018.pdf "
+                                }
+                            ]
+                        },
+                        {
+                            id: "gestion-calidad",
+                            label: "Gestión para\nla Calidad",
+                            level: 2,
+                            type: "circle",
+                            icon: "⭐",
+                            description: "Gestión educativa orientada a la calidad y excelencia",
+                            children: [
+                                {
+                                    id: "unesco-gestion",
+                                    label: "UNESCO\nGestión Educativa",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🌐",
+                                    description: "La importancia de la gestión educativa para lograr una educación de calidad: una revisión sistemática.",
+                                    link: "https://drive.google.com/file/d/1XQ7mWUR52P7rE0X9xc8ledUAT5mKx2Lb/view?usp=drive_link "
+                                },
+                                {
+                                    id: "podcast-gestion",
+                                    label: "Podcast\nGestión Educativa",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🎧",
+                                    description: "Audio especializado sobre gestión en organizaciones educativas.",
+                                    link: "https://podcasts.apple.com/co/podcast/gesti%C3%B3n-educativa/id1526480742 "
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "caracteristicas",
+                    label: "Características\nOrganizativas",
+                    level: 1,
+                    type: "triangle",
+                    icon: "🔍",
+                    description: "Rasgos distintivos de las organizaciones educativas según Santos Guerra",
+                    children: [
+                        {
+                            id: "rasgos-distintivos",
+                            label: "Rasgos\nDistintivos",
+                            level: 2,
+                            type: "circle",
+                            icon: "🎯",
+                            description: "Características específicas que diferencian a las escuelas de otras organizaciones",
+                            children: [
+                                {
+                                    id: "santos-guerra",
+                                    label: "Santos Guerra\n10 Rasgos",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "👨‍🏫",
+                                    description: "Infografía de los 10 rasgos distintivos de la escuela como organización.",
+                                    link: "https://drive.google.com/file/d/1XQ7mWUR52P7rE0X9xc8ledUAT5mKx2Lb/view?usp=sharing "
+                                },
+                                {
+                                    id: "ppt-caract",
+                                    label: "PPT:\nCaracterísticas",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "📊",
+                                    description: "Presentación sobre características que definen las organizaciones educativas.",
+                                    link: "https://es.slideshare.net/slideshow/caracteristicas-que-definen-las-organizaciones-educativas-pptx/273024245 "
+                                }
+                            ]
+                        },
+                        {
+                            id: "complejidad",
+                            label: "Complejidad y\nVulnerabilidad",
+                            level: 2,
+                            type: "circle",
+                            icon: "🧩",
+                            description: "Articulación débil y vulnerabilidad organizacional en centros educativos",
+                            children: [
+                                {
+                                    id: "pdf-caract",
+                                    label: "PDF:\nCaracterísticas",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "📄",
+                                    description: "Documento técnico sobre rasgos característicos de organizaciones educativas.",
+                                    link: "https://cdn1.capacitateparaelempleo.org/cdn_aprende/assets/v8u4z5s.pdf "
+                                },
+                                {
+                                    id: "aula-facil",
+                                    label: "AulaFácil:\nRasgos y\nCaracterísticas",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🎓",
+                                    description: "Artículo educativo completo sobre rasgos organizativos escolares.",
+                                    link: "https://www.aulafacil.com/cursos/pedagogia/organizacion-escolar/rasgos-caracteristicos-de-las-organizaciones-educativas-l34312 "
+                                }
+                            ]
+                        },
+                        {
+                            id: "coordinacion",
+                            label: "Coordinación\nde Actividades",
+                            level: 2,
+                            type: "circle",
+                            icon: "🔄",
+                            description: "Organización como coordinación de actividades y procesos",
+                            children: [
+                                {
+                                    id: "video-guzman",
+                                    label: "Video: Isaac\nGuzmán Valdivia",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "▶️",
+                                    description: "Organización como coordinación de actividades. Canal: Educomentario con Arturo Barraza Macías.",
+                                    link: "https://www.youtube.com/watch?v=GgKi3lt20Wg "
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "elementos",
+                    label: "Elementos\nEstructurales",
+                    level: 1,
+                    type: "triangle",
+                    icon: "🧱",
+                    description: "Componentes que conforman las organizaciones educativas",
+                    children: [
+                        {
+                            id: "recursos",
+                            label: "Recursos\nHumanos y\nMateriales",
+                            level: 2,
+                            type: "circle",
+                            icon: "💼",
+                            description: "Gestión del talento humano y recursos materiales en educación",
+                            children: [
+                                {
+                                    id: "rondon-talento",
+                                    label: "Rondón & Ammar\nTalento Humano",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "👥",
+                                    description: "Gestión del talento humano en organizaciones educativas según Rondón y Ammar (2016).",
+                                    link: "https://scielo.conicyt.cl/scielo.php?pid=S0718-27242016000100013&script=sci_arttext "
+                                }
+                            ]
+                        },
+                        {
+                            id: "cultura-org",
+                            label: "Cultura\nOrganizacional",
+                            level: 2,
+                            type: "circle",
+                            icon: "🤝",
+                            description: "El elemento cultural como 'pegamento' organizacional",
+                            children: [
+                                {
+                                    id: "reales-cultura",
+                                    label: "Reales & Arce\nCultura Org.",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "📖",
+                                    description: "La organización educativa y su cultura según Reales Chacón y Arce Aguirre (2008).",
+                                    link: "#"
+                                },
+                                {
+                                    id: "clima-escolar",
+                                    label: "Clima\nEscolar",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🌈",
+                                    description: "Ambiente escolar y su impacto en el aprendizaje según investigaciones recientes."
+                                }
+                            ]
+                        },
+                        {
+                            id: "pei",
+                            label: "Proyecto\nEducativo\nInstitucional",
+                            level: 2,
+                            type: "circle",
+                            icon: "📋",
+                            description: "PEI como herramienta de planificación y gestión",
+                            children: [
+                                {
+                                    id: "pei-operativizacion",
+                                    label: "Operativización\nPEI",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🎯",
+                                    description: "Cómo el PEI operativiza objetivos y cultura organizacional en la práctica."
+                                },
+                                {
+                                    id: "planificacion-estrategica",
+                                    label: "Planificación\nEstratégica",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "📈",
+                                    description: "Herramientas de planificación estratégica para instituciones educativas."
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "liderazgo",
+                    label: "Liderazgo\nEducativo",
+                    level: 1,
+                    type: "triangle",
+                    icon: "👑",
+                    description: "Estilos y tipos de liderazgo en organizaciones educativas",
+                    children: [
+                        {
+                            id: "tipos-liderazgo",
+                            label: "Tipos de\nLiderazgo",
+                            level: 2,
+                            type: "circle",
+                            icon: "🎭",
+                            description: "Diferentes estilos de liderazgo aplicados a la educación",
+                            children: [
+                                {
+                                    id: "transformacional",
+                                    label: "Liderazgo\nTransformacional",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🔥",
+                                    description: "Motiva e inspira cambios profundos, ideal para implementar innovaciones educativas. Inspira a profesores y estudiantes mediante el ejemplo y una visión convincente. [^1^]",
+                                    link: "https://virtual.usmp.edu.pe/contenidos-educativos/educacion/tipos-de-liderazgo-educativo/ "
+                                },
+                                {
+                                    id: "distribuido",
+                                    label: "Liderazgo\nDistribuido",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🤲",
+                                    description: "Reparte responsabilidades entre distintos miembros del equipo docente, favoreciendo la colaboración y corresponsabilidad. Fomenta el crecimiento profesional de los docentes. [^4^]",
+                                    link: "https://northbridge.edu/es/publicaciones/liderazgo-educativo "
+                                },
+                                {
+                                    id: "pedagogico",
+                                    label: "Liderazgo\nPedagógico",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "📚",
+                                    description: "Cuida los valores comunes del centro y dirige esfuerzos a la mejora del desarrollo académico. Persigue la excelencia académica y el desarrollo curricular. [^4^]",
+                                    link: "https://northbridge.edu/es/publicaciones/liderazgo-educativo "
+                                }
+                            ]
+                        },
+                        {
+                            id: "gestion-directiva",
+                            label: "Gestión\nDirectiva",
+                            level: 2,
+                            type: "circle",
+                            icon: "⚡",
+                            description: "Rol del director y equipo directivo en la gestión del cambio",
+                            children: [
+                                {
+                                    id: "liderazgo-directivo",
+                                    label: "Liderazgo\nDirectivo",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🎯",
+                                    description: "Equipos directivos juegan papel clave en definición del modelo de convivencia escolar y toma de decisiones que afectan la organización. [^5^]",
+                                    link: "http://scielo.senescyt.gob.ec/scielo.php?script=sci_arttext&pid=S2550-65872018000100059 "
+                                },
+                                {
+                                    id: "comunicacion-liderazgo",
+                                    label: "Comunicación\ny Liderazgo",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "💬",
+                                    description: "Importancia de la comunicación efectiva en el liderazgo educativo según Jiménez (2021).",
+                                    link: "#"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "importancia",
+                    label: "Impacto e\nImportancia",
+                    level: 1,
+                    type: "triangle",
+                    icon: "🌍",
+                    description: "Relevancia social y educativa de las organizaciones educativas",
+                    children: [
+                        {
+                            id: "contrato-social",
+                            label: "Contrato\nSocial",
+                            level: 2,
+                            type: "circle",
+                            icon: "📜",
+                            description: "Educación como contrato social y bien público",
+                            children: [
+                                {
+                                    id: "unesco-2021",
+                                    label: "UNESCO 2021\nReimaginar\nFuturos",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🌐",
+                                    description: "Informe global más actualizado sobre la relevancia de la educación como contrato social.",
+                                    link: "https://unesdoc.unesco.org/ark:/48223/pf0000379381_spa "
+                                }
+                            ]
+                        },
+                        {
+                            id: "movilidad-desarrollo",
+                            label: "Movilidad y\nDesarrollo",
+                            level: 2,
+                            type: "circle",
+                            icon: "📈",
+                            description: "Educación como motor de desarrollo humano y social",
+                            children: [
+                                {
+                                    id: "movilidad-social",
+                                    label: "Video:\nMovilidad Social",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🎥",
+                                    description: "La educación como motor de movilidad social y desarrollo humano.",
+                                    link: "https://www.youtube.com/watch?v=feFXuanzq0A "
+                                },
+                                {
+                                    id: "ciudadania",
+                                    label: "Formación del\nCiudadano S.XXI",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🏛️",
+                                    description: "Análisis universitario sobre la importancia de la IE en la formación ciudadana.",
+                                    link: "https://revistauls.lasalle.edu.co/files-articles/ruls/vol2013/iss61/12/fulltext.pdf "
+                                }
+                            ]
+                        },
+                        {
+                            id: "calidad-educativa",
+                            label: "Calidad\nEducativa",
+                            level: 2,
+                            type: "circle",
+                            icon: "✅",
+                            description: "Indicadores y evaluación de la calidad en educación",
+                            children: [
+                                {
+                                    id: "indicadores-calidad",
+                                    label: "Indicadores\nde Calidad",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "📊",
+                                    description: "Rendimiento académico, tasa de retención, formación docente, infraestructura y satisfacción de la comunidad educativa. [^2^]",
+                                    link: "https://upaedu.mx/indicadores-clave-para-medir-la-calidad-educativa/ "
+                                },
+                                {
+                                    id: "evaluacion-institucional",
+                                    label: "Evaluación\nInstitucional",
+                                    level: 3,
+                                    type: "circle",
+                                    icon: "🔍",
+                                    description: "Procesos de autoevaluación y mejora continua en instituciones educativas. [^3^]",
+                                    link: "https://edocentes.com/indicadores-clave-para-evaluar-la-calidad-educativa/ "
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // Variables globales
+        let scale = 0.7;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startX, startY;
+        let collapsedNodes = new Set();
+        let nodePositions = new Map();
+
+        const svg = document.getElementById('mindmap-svg');
+        const container = document.getElementById('mindmap-container');
+        const tooltip = document.getElementById('tooltip');
+        const loader = document.getElementById('loader');
+
+        // Funciones de geometría
+        function getHexagonPoints(x, y, size) {
+            const points = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i - Math.PI / 2;
+                points.push(`${x + size * Math.cos(angle)},${y + size * Math.sin(angle)}`);
+            }
+            return points.join(' ');
+        }
+
+        function getTrianglePoints(x, y, size) {
+            const height = size * Math.sqrt(3) / 2;
+            return `${x},${y - height} ${x - size},${y + height/2} ${x + size},${y + height/2}`;
+        }
+
+        // Calcular posiciones de nodos en cascada (horizontal) con 4 niveles
+        function calculateLayout(data, startX, startY) {
+            const positions = new Map();
+            const levelWidth = 320;
+            const nodeHeight = 90;
+            
+            function traverse(node, level, parentY, index, totalSiblings) {
+                let x, y;
+                
+                if (level === 0) {
+                    x = startX;
+                    y = startY;
+                } else {
+                    x = startX + level * levelWidth;
+                    // Distribución vertical con más espacio para evitar superposiciones
+                    const spacing = level === 1 ? 180 : (level === 2 ? 140 : 110);
+                    const totalHeight = totalSiblings * spacing;
+                    const startYOffset = parentY - totalHeight / 2;
+                    y = startYOffset + (index * spacing) + (spacing / 2);
+                }
+                
+                positions.set(node.id, { x, y, level });
+                
+                if (node.children && !collapsedNodes.has(node.id)) {
+                    node.children.forEach((child, i) => {
+                        traverse(child, level + 1, y, i, node.children.length);
+                    });
+                }
+            }
+            
+            traverse(data, 0, startY, 0, 1);
+            return positions;
+        }
+
+        // Renderizar el mapa mental
+        function render() {
+            const rect = container.getBoundingClientRect();
+            const startX = rect.width * 0.12;
+            const startY = rect.height / 2;
+            
+            nodePositions = calculateLayout(mindmapData, startX, startY);
+            
+            let svgContent = '';
+            
+            // Dibujar conexiones con curvas suaves tipo cascada
+            function drawConnections(node) {
+                if (node.children && !collapsedNodes.has(node.id)) {
+                    const parentPos = nodePositions.get(node.id);
+                    node.children.forEach(child => {
+                        const childPos = nodePositions.get(child.id);
+                        if (parentPos && childPos) {
+                            // Curva tipo cascada horizontal suave
+                            const midX = (parentPos.x + childPos.x) / 2;
+                            const d = `M${parentPos.x + (node.level === 0 ? 80 : 60)},${parentPos.y} C${midX},${parentPos.y} ${midX},${childPos.y} ${childPos.x - 60},${childPos.y}`;
+                            
+                            svgContent += `<path class="connection" d="${d}" />`;
+                        }
+                        drawConnections(child);
+                    });
+                }
+            }
+            
+            drawConnections(mindmapData);
+            
+            // Dibujar nodos
+            function drawNodes(node) {
+                const pos = nodePositions.get(node.id);
+                if (!pos) return;
+                
+                const size = node.level === 0 ? 85 : (node.level === 1 ? 65 : (node.level === 2 ? 50 : 40));
+                let shape;
+                
+                if (node.type === 'hexagon') {
+                    shape = `<polygon points="${getHexagonPoints(pos.x, pos.y, size)}" class="node-shape" />`;
+                } else if (node.type === 'triangle') {
+                    shape = `<polygon points="${getTrianglePoints(pos.x, pos.y, size)}" class="node-shape" />`;
+                } else {
+                    // Círculos para niveles 2 y 3
+                    shape = `<circle cx="${pos.x}" cy="${pos.y}" r="${size}" class="node-shape" />`;
+                }
+                
+                const hasChildren = node.children && node.children.length > 0;
+                const isCollapsed = collapsedNodes.has(node.id);
+                
+                // Icono circular adicional para nodos con hijos
+                const indicatorCircle = hasChildren ? 
+                    `<circle cx="${pos.x + size * 0.8}" cy="${pos.y - size * 0.8}" r="12" class="icon-circle" />
+                     <text x="${pos.x + size * 0.8}" y="${pos.y - size * 0.8 + 4}" text-anchor="middle" fill="#000" font-size="14" font-weight="900" pointer-events="none">${isCollapsed ? '+' : '−'}</text>` : '';
+                
+                // Ajustar posición del texto según el nivel
+                const textOffset = node.level === 0 ? 20 : (node.level === 1 ? 15 : 12);
+                
+                svgContent += `
+                    <g class="node-group level-${node.level}" 
+                       data-id="${node.id}"
+                       onclick="handleNodeClick('${node.id}', event)"
+                       onmouseenter="showTooltip(event, '${node.id}')"
+                       onmouseleave="hideTooltip()"
+                       onmousedown="startDrag(event)">
+                        ${shape}
+                        <text x="${pos.x}" y="${pos.y - textOffset/2}" class="node-icon">${node.icon}</text>
+                        <text x="${pos.x}" y="${pos.y + textOffset}" class="node-text">${node.label.replace(/\n/g, ' ')}</text>
+                        ${indicatorCircle}
+                    </g>
+                `;
+                
+                if (node.children && !isCollapsed) {
+                    node.children.forEach(drawNodes);
+                }
+            }
+            
+            drawNodes(mindmapData);
+            
+            svg.innerHTML = svgContent;
+            updateTransform();
+        }
+
+        // Interacciones
+        function handleNodeClick(id, event) {
+            event.stopPropagation();
+            const node = findNode(mindmapData, id);
+            
+            if (node && node.children) {
+                if (collapsedNodes.has(id)) {
+                    collapsedNodes.delete(id);
+                } else {
+                    collapsedNodes.add(id);
+                }
+                render();
+            }
+            
+            if (node && node.link && node.link !== '#') {
+                window.open(node.link, '_blank');
+            }
+        }
+
+        function findNode(root, id) {
+            if (root.id === id) return root;
+            if (root.children) {
+                for (let child of root.children) {
+                    const found = findNode(child, id);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        function showTooltip(event, id) {
+            const node = findNode(mindmapData, id);
+            if (node && node.description) {
+                tooltip.innerHTML = `<strong style="color:#FFD700; font-size:14px;">${node.label.replace(/\n/g, ' ')}</strong><br><br>${node.description}`;
+                tooltip.style.left = Math.min(event.pageX + 15, window.innerWidth - 320) + 'px';
+                tooltip.style.top = Math.min(event.pageY + 15, window.innerHeight - 200) + 'px';
+                tooltip.classList.add('active');
+            }
+        }
+
+        function hideTooltip() {
+            tooltip.classList.remove('active');
+        }
+
+        // Drag and Drop
+        function startDrag(event) {
+            if (event.button !== 0) return;
+            isDragging = true;
+            startX = event.clientX - translateX;
+            startY = event.clientY - translateY;
+            container.classList.add('grabbing');
+            event.preventDefault();
+        }
+
+        container.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateTransform();
+            }
+        });
+
+        container.addEventListener('mouseup', () => {
+            isDragging = false;
+            container.classList.remove('grabbing');
+        });
+
+        container.addEventListener('mouseleave', () => {
+            isDragging = false;
+            container.classList.remove('grabbing');
+        });
+
+        // Zoom con rueda del mouse
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            scale *= delta;
+            scale = Math.max(0.3, Math.min(3, scale));
+            updateTransform();
+        });
+
+        function updateTransform() {
+            svg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        }
+
+        function zoomIn() {
+            scale *= 1.2;
+            updateTransform();
+        }
+
+        function zoomOut() {
+            scale *= 0.8;
+            updateTransform();
+        }
+
+        function resetZoom() {
+            scale = 0.7;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+        }
+
+        // Búsqueda predictiva
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+        let allNodes = [];
+
+        function collectNodes(node) {
+            allNodes.push(node);
+            if (node.children) {
+                node.children.forEach(collectNodes);
+            }
+        }
+
+        collectNodes(mindmapData);
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            if (query.length < 2) {
+                searchResults.classList.remove('active');
+                return;
+            }
+            
+            const matches = allNodes.filter(n => 
+                n.label.toLowerCase().includes(query) || 
+                (n.description && n.description.toLowerCase().includes(query))
+            );
+            
+            searchResults.innerHTML = matches.map(n => 
+                `<div class="search-item" onclick="focusNode('${n.id}')">${n.label.replace(/\n/g, ' ')}</div>`
+            ).join('');
+            
+            searchResults.classList.add('active');
+        });
+
+        function focusNode(id) {
+            const pos = nodePositions.get(id);
+            if (pos) {
+                const rect = container.getBoundingClientRect();
+                translateX = rect.width/2 - pos.x * scale;
+                translateY = rect.height/2 - pos.y * scale;
+                updateTransform();
+                
+                let parent = findParent(mindmapData, id);
+                while (parent) {
+                    collapsedNodes.delete(parent.id);
+                    parent = findParent(mindmapData, parent.id);
+                }
+                render();
+                
+                setTimeout(() => {
+                    const nodeEl = document.querySelector(`[data-id="${id}"]`);
+                    if (nodeEl) {
+                        nodeEl.style.transform = 'scale(1.1)';
+                        setTimeout(() => {
+                            nodeEl.style.transform = 'scale(1)';
+                        }, 200);
+                    }
+                }, 100);
+            }
+            searchResults.classList.remove('active');
+            searchInput.value = '';
+        }
+
+        function findParent(root, id, parent = null) {
+            if (root.id === id) return parent;
+            if (root.children) {
+                for (let child of root.children) {
+                    const found = findParent(child, id, root);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        // Modal
+        function openModal() {
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeModal();
+        });
+
+        // Créditos
+        function toggleCredits() {
+            document.getElementById('creditsContainer').classList.toggle('show');
+        }
+
+        // Inicialización
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                loader.style.display = 'none';
+                render();
+                const rect = container.getBoundingClientRect();
+                translateY = 0;
+                updateTransform();
+            }, 800);
+        });
+
+        window.addEventListener('resize', () => {
+            render();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-container')) {
+                searchResults.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
