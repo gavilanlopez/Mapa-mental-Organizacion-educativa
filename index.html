@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mapa Mental - Gestión del Cambio en Organizaciones Educativas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --upel-blue: #003366;
+            --upel-blue-light: #004d99;
+            --upel-blue-dark: #002244;
+            --impm-yellow: #FFD700;
+            --impm-yellow-light: #FFE44D;
+            --impm-green: #228B22;
+            --impm-green-light: #2E8B57;
+            --white: #ffffff;
+            --cream: #fafafa;
+            --text-dark: #1a1a1a;
+            --text-gray: #333333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--cream) 0%, #f0f0f0 100%);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--upel-blue);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,51,102,0.3);
+            height: 60px;
+        }
+
+        .title {
+            color: var(--white);
+            font-size: 1.1em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .title::before {
+            content: "🎓";
+            font-size: 1.3em;
+        }
+
+        .search-container {
+            position: relative;
+            width: 280px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 18px;
+            border: 2px solid var(--impm-yellow);
+            border-radius: 25px;
+            background: var(--white);
+            font-size: 13px;
+            outline: none;
+            transition: all 0.3s ease;
+            color: var(--text-dark);
+        }
+
+        .search-input:focus {
+            box-shadow: 0 0 15px rgba(255,215,0,0.4);
+            transform: scale(1.02);
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 10px;
+            margin-top: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 1001;
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+            font-size: 13px;
+            color: var(--text-dark);
+        }
+
+        .search-item:hover {
+            background: var(--impm-yellow-light);
+            color: var(--upel-blue);
+        }
+
+        /* Contenedor del mapa - Vista completa optimizada */
+        #mindmap-container {
+            width: 100vw;
+            height: calc(100vh - 60px);
+            margin-top: 60px;
+            cursor: grab;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #ffffff 0%, #f5f5f5 100%);
+        }
+
+        #mindmap-container.grabbing {
+            cursor: grabbing;
+        }
+
+        #mindmap-svg {
+            width: 100%;
+            height: 100%;
+            transform-origin: center center;
+        }
+
+        /* Nodos */
+        .node-group {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .node-shape {
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+            transition: all 0.3s ease;
+            stroke: var(--white);
+            stroke-width: 3;
+        }
+
+        .node-group:hover .node-shape {
+            filter: drop-shadow(0 8px 20px rgba(0,0,0,0.25));
+            transform: scale(1.08);
+            stroke-width: 4;
+        }
+
+        .node-text {
+            font-size: 12px;
+            font-weight: 700;
+            fill: var(--text-dark);
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        }
+
+        .node-icon {
+            font-size: 18px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+
+        /* Colores por nivel - Texto siempre oscuro */
+        .level-0 .node-shape { fill: var(--impm-yellow); stroke: var(--upel-blue); }
+        .level-0 .node-text { fill: var(--upel-blue); font-size: 14px; font-weight: 800; }
+        
+        .level-1 .node-shape { fill: var(--upel-blue); stroke: var(--impm-yellow); }
+        .level-1 .node-text { fill: var(--white); font-weight: 700; }
+        
+        .level-2 .node-shape { fill: var(--impm-green); stroke: var(--white); }
+        .level-2 .node-text { fill: var(--white); font-weight: 600; }
+        
+        .level-3 .node-shape { fill: var(--impm-yellow-light); stroke: var(--upel-blue); }
+        .level-3 .node-text { fill: var(--upel-blue); font-size: 11px; }
+
+        /* Líneas de conexión */
+        .connection {
+            fill: none;
+            stroke: var(--upel-blue);
+            stroke-width: 2.5;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .connection:hover {
+            stroke-width: 4;
+            opacity: 1;
+            stroke: var(--impm-green);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: rgba(0,51,102,0.95);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            max-width: 280px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+            border-left: 4px solid var(--impm-yellow);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            line-height: 1.4;
+        }
+
+        .tooltip.active {
+            opacity: 1;
+        }
+
+        /* Modal de referencias - Libro animado */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .book-modal {
+            width: 700px;
+            max-height: 85vh;
+            background: linear-gradient(to right, #8B4513 0%, #A0522D 3%, #FFF8DC 3%, #FFF8DC 97%, #8B4513 97%, #A0522D 100%);
+            border-radius: 12px;
+            padding: 30px;
+            position: relative;
+            transform: perspective(1000px) rotateY(-90deg);
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 25px 80px rgba(0,0,0,0.6);
+            overflow-y: auto;
+        }
+
+        .modal-overlay.active .book-modal {
+            transform: perspective(1000px) rotateY(0deg);
+        }
+
+        .book-content {
+            background: rgba(255,255,255,0.95);
+            padding: 30px;
+            border-radius: 8px;
+            margin: 0 15px;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.1);
+        }
+
+        .book-title {
+            color: var(--upel-blue);
+            font-size: 1.6em;
+            margin-bottom: 25px;
+            border-bottom: 4px solid var(--impm-yellow);
+            padding-bottom: 12px;
+            text-align: center;
+            font-weight: 800;
+        }
+
+        .reference-item {
+            margin: 18px 0;
+            padding: 18px;
+            background: white;
+            border-left: 5px solid var(--impm-green);
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--text-dark);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            transition: transform 0.2s;
+        }
+
+        .reference-item:hover {
+            transform: translateX(5px);
+            background: #f9f9f9;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 25px;
+            background: var(--upel-blue);
+            color: white;
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            transition: all 0.3s;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .close-btn:hover {
+            background: var(--impm-yellow);
+            color: var(--upel-blue);
+            transform: rotate(90deg) scale(1.1);
+        }
+
+        /* Controles de zoom */
+        .zoom-controls {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .zoom-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 3px solid var(--upel-blue);
+            background: var(--white);
+            color: var(--upel-blue);
+            font-size: 22px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .zoom-btn:hover {
+            background: var(--upel-blue);
+            color: var(--white);
+            transform: scale(1.15);
+            border-color: var(--impm-yellow);
+        }
+
+        /* Botón de referencias */
+        .ref-btn {
+            position: fixed;
+            bottom: 25px;
+            left: 25px;
+            background: linear-gradient(135deg, var(--impm-yellow), var(--impm-yellow-light));
+            color: var(--upel-blue);
+            border: 3px solid var(--upel-blue);
+            padding: 14px 28px;
+            border-radius: 30px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            font-size: 14px;
+        }
+
+        .ref-btn:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background: linear-gradient(135deg, var(--upel-blue), var(--upel-blue-light));
+            color: var(--white);
+            border-color: var(--impm-yellow);
+        }
+
+        /* Créditos animados */
+        .credits-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, var(--upel-blue) 0%, rgba(0,51,102,0.95) 60%, transparent);
+            padding: 25px 20px 20px;
+            text-align: center;
+            color: white;
+            transform: translateY(100%);
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+        }
+
+        .credits-container.show {
+            transform: translateY(0);
+        }
+
+        .credits-title {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: var(--impm-yellow);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-weight: 800;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .credits-names {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            font-size: 0.95em;
+        }
+
+        .credit-name {
+            opacity: 0;
+            animation: fadeInUp 0.6s forwards;
+            padding: 8px 20px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 25px;
+            border: 2px solid var(--impm-yellow);
+            backdrop-filter: blur(10px);
+            font-weight: 600;
+        }
+
+        .credit-name:nth-child(1) { animation-delay: 0.1s; }
+        .credit-name:nth-child(2) { animation-delay: 0.25s; }
+        .credit-name:nth-child(3) { animation-delay: 0.4s; }
+        .credit-name:nth-child(4) { animation-delay: 0.55s; }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .toggle-credits {
+            position: fixed;
+            bottom: 90px;
+            left: 25px;
+            background: var(--white);
+            color: var(--upel-blue);
+            border: 3px solid var(--upel-blue);
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.3s;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        .toggle-credits:hover {
+            background: var(--impm-green);
+            color: var(--white);
+            border-color: var(--impm-green);
+            transform: translateY(-2px);
+        }
+
+        /* Indicador de carga */
+        .loader {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4em;
+            color: var(--upel-blue);
+            z-index: 3000;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+        }
+
+        /* Indicador de colapso */
+        .collapse-indicator {
+            fill: var(--white);
+            stroke: var(--upel-blue);
+            stroke-width: 2;
+            font-size: 12px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                height: auto;
+                padding: 10px;
+            }
+            .title {
+                font-size: 0.9em;
+            }
+            .search-container {
+                width: 100%;
+                margin-top: 8px;
+            }
+            #mindmap-container {
+                margin-top: 100px;
+                height: calc(100vh - 100px);
+            }
+            .book-modal {
+                width: 95%;
+                padding: 15px;
+            }
+            .credits-names {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="title">Gestión del Cambio en Organizaciones Educativas</div>
+        <div class="search-container">
+            <input type="text" class="search-input" placeholder="🔍 Buscar nodo..." id="searchInput">
+            <div class="search-results" id="searchResults"></div>
+        </div>
+    </div>
+
+    <!-- Loader -->
+    <div class="loader" id="loader">📚</div>
+
+    <!-- Contenedor del Mapa Mental -->
+    <div id="mindmap-container">
+        <svg id="mindmap-svg"></svg>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- Modal de Referencias -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="book-modal">
+            <button class="close-btn" onclick="closeModal()">×</button>
+            <div class="book-content">
+                <h2 class="book-title">📚 Referencias Bibliográficas<br><small style="font-size:0.6em; color:#666;">(Normativa UPEL, 2022)</small></h2>
+                
+                <div class="reference-item">
+                    <strong>Jiménez, C. R. (2021).</strong> La importancia de la comunicación y liderazgo en organizaciones educativas. <em>Revista Gestión en el Siglo XXI</em>, 6(11), 34-52.
+                </div>
+                
+                <div class="reference-item">
+                    <strong>Mayo, I. C. (2003).</strong> La estructura de las organizaciones educativas y sus múltiples implicaciones. Editorial Síntesis.
+                </div>
+                
+                <div class="reference-item">
+                    <strong>Reales Chacón, L. J. y Arce Aguirre, J. A. (2008).</strong> La organización educativa y su cultura. Editorial Universitaria.
+                </div>
+                
+                <div class="reference-item">
+                    <strong>Rondón, M. y Ammar, M. (2016).</strong> Gestión del talento humano en organizaciones educativas. <em>Revista Venezolana de Gerencia</em>, 21(74), 230-248.
+                </div>
+                
+                <div class="reference-item">
+                    <strong>Santos Guerra, M. Á. (1999).</strong> Organización para el desarrollo profesional. <em>Profesorado. Revista de currículum y formación del profesorado</em>, 3(1).
+                </div>
+                
+                <div class="reference-item">
+                    <strong>Gairín, J.</strong> La Organización Escolar: Contexto y Texto de Actuación. UNTER.
+                </div>
+                
+                <div class="reference-item">
+                    <strong>UNESCO (2021).</strong> Reimaginar juntos nuestros futuros: Un nuevo contrato social para la educación.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones -->
+    <button class="ref-btn" onclick="openModal()">
+        <span>📖</span> Ver Referencias
+    </button>
+    
+    <button class="toggle-credits" onclick="toggleCredits()">👥 Ver Créditos</button>
+
+    <!-- Créditos -->
+    <div class="credits-container" id="creditsContainer">
+        <div class="credits-title">Elaboración del Mapa Mental</div>
+        <div class="credits-names">
+            <div class="credit-name">BARRAGAN GARCIA YANILSEN MILENA</div>
+            <div class="credit-name">MATTOS MANJARRES CESIL ALFONSO</div>
+            <div class="credit-name">MATOS MANJARRES ULISES STANLY</div>
+            <div class="credit-name">MAZ LAPEIRA NINI JOHANNA</div>
+        </div>
+    </div>
+
+    <!-- Controles de Zoom -->
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()" title="Acercar">+</button>
+        <button class="zoom-btn" onclick="resetZoom()" title="Resetear vista">⌂</button>
+        <button class="zoom-btn" onclick="zoomOut()" title="Alejar">−</button>
+    </div>
+
+    <script>
+        // Datos del Mapa Mental con enlaces actualizados
+        const mindmapData = {
+            id: "root",
+            label: "Gestión del Cambio\nen Organizaciones\nEducativas",
+            level: 0,
+            type: "hexagon",
+            icon: "🎓",
+            description: "Mapa mental interactivo sobre gestión y estructura de organizaciones educativas. Incluye teoría de Gairín, Santos Guerra y UNESCO.",
+            children: [
+                {
+                    id: "concepto",
+                    label: "Concepto de\nOrganización\nEducativa",
+                    level: 1,
+                    type: "triangle",
+                    icon: "🏛️",
+                    description: "Definición fundamental: la escuela como organización social (no empresa), basada en Gairín y Chiavenato",
+                    children: [
+                        {
+                            id: "doc-gairin",
+                            label: "Doc. Gairín\n(UNTER)",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "📄",
+                            description: "La Organización Escolar: Contexto y Texto de Actuación. Texto base sobre por qué la escuela es organización social.",
+                            link: "https://www.unter.org.ar/wp-content/uploads/2014/10/GSTN_Gairin-Sallan_2_Unidad_2.pdf"
+                        },
+                        {
+                            id: "video-concepto",
+                            label: "Video:\n¿Qué es una\norganización?",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "▶️",
+                            description: "Conceptos fundamentales de Teoría General de Sistemas aplicados a organizaciones educativas.",
+                            link: "https://drive.google.com/file/d/1GT_15Rcc1hHlaBx1HMM5vqO8QT_oNREX/view?usp=sharing"
+                        },
+                        {
+                            id: "unesco-gestion",
+                            label: "UNESCO\nGestión Educativa",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "🌐",
+                            description: "La importancia de la gestión educativa para lograr una educación de calidad: una revisión sistemática.",
+                            link: "https://drive.google.com/file/d/1XQ7mWUR52P7rE0X9xc8ledUAT5mKx2Lb/view?usp=drive_link"
+                        },
+                        {
+                            id: "unir-web",
+                            label: "Artículo UNIR\nOrganización Escolar",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "🌐",
+                            description: "Concepto moderno de organización escolar y sus particularidades.",
+                            link: "https://www.unir.net/revista/educacion/organizacion-escolar/"
+                        },
+                        {
+                            id: "escuela-aprende",
+                            label: "PDF: Escuela\nOrganización\nque Aprende",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "📚",
+                            description: "Documento clásico sobre vulnerabilidad y capacidad de adaptación de las instituciones educativas.",
+                            link: "https://valoras.uc.cl/images/centro-recursos/equipo/FormacionDeComunidad/Fichas/La-Escuela-como-una-Organizacin-que-aprende-2018.pdf"
+                        },
+                        {
+                            id: "podcast-gestion",
+                            label: "Podcast\nGestión Educativa",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "🎧",
+                            description: "Audio especializado sobre gestión en organizaciones educativas.",
+                            link: "https://podcasts.apple.com/co/podcast/gesti%C3%B3n-educativa/id1526480742"
+                        }
+                    ]
+                },
+                {
+                    id: "caracteristicas",
+                    label: "Características de\nlas Organizaciones\nEducativas",
+                    level: 1,
+                    type: "triangle",
+                    icon: "🔍",
+                    description: "Complejidad, articulación débil y vulnerabilidad según Miguel Ángel Santos Guerra",
+                    children: [
+                        {
+                            id: "santos-guerra",
+                            label: "Santos Guerra\n10 Rasgos",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "👨‍🏫",
+                            description: "Infografía de los 10 rasgos distintivos de la escuela como organización.",
+                            link: "https://drive.google.com/file/d/1XQ7mWUR52P7rE0X9xc8ledUAT5mKx2Lb/view?usp=sharing"
+                        },
+                        {
+                            id: "video-guzman",
+                            label: "Video: Isaac\nGuzmán Valdivia",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "▶️",
+                            description: "Organización como coordinación de actividades. Canal: Educomentario con Arturo Barraza Macías.",
+                            link: "https://www.youtube.com/watch?v=GgKi3lt20Wg"
+                        },
+                        {
+                            id: "ppt-caract",
+                            label: "PPT:\nCaracterísticas",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "📊",
+                            description: "Presentación sobre características que definen las organizaciones educativas.",
+                            link: "https://es.slideshare.net/slideshow/caracteristicas-que-definen-las-organizaciones-educativas-pptx/273024245"
+                        },
+                        {
+                            id: "pdf-caract",
+                            label: "PDF:\nCaracterísticas",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "📄",
+                            description: "Documento técnico sobre rasgos característicos de organizaciones educativas.",
+                            link: "https://cdn1.capacitateparaelempleo.org/cdn_aprende/assets/v8u4z5s.pdf"
+                        },
+                        {
+                            id: "aula-facil",
+                            label: "AulaFácil:\nRasgos y\nCaracterísticas",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "🎓",
+                            description: "Artículo educativo completo sobre rasgos organizativos escolares.",
+                            link: "https://www.aulafacil.com/cursos/pedagogia/organizacion-escolar/rasgos-caracteristicos-de-las-organizaciones-educativas-l34312"
+                        }
+                    ]
+                },
+                {
+                    id: "elementos",
+                    label: "Elementos que\nconforman las\nOrganizaciones",
+                    level: 1,
+                    type: "triangle",
+                    icon: "🧩",
+                    description: "Componentes estructurales: Recursos, Estructura, Tecnología y Cultura organizacional",
+                    children: [
+                        {
+                            id: "pei",
+                            label: "PEI como\nherramienta",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "📋",
+                            description: "Proyecto Educativo Institucional: operativización de objetivos y cultura organizacional."
+                        },
+                        {
+                            id: "componentes",
+                            label: "Componentes\nde Gestión",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "⚙️",
+                            description: "Visualización de la interacción entre recursos humanos y materiales."
+                        },
+                        {
+                            id: "cultura-org",
+                            label: "Cultura\nOrganizacional",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "🤝",
+                            description: "El elemento cultural como 'pegamento' que une a los demás componentes de la organización."
+                        }
+                    ]
+                },
+                {
+                    id: "importancia",
+                    label: "Importancia de\nlas Organizaciones\nEducativas",
+                    level: 1,
+                    type: "triangle",
+                    icon: "⭐",
+                    description: "Impacto social, desarrollo humano y educación como contrato social (UNESCO)",
+                    children: [
+                        {
+                            id: "unesco-2021",
+                            label: "UNESCO 2021\nReimaginar\nFuturos",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "🌍",
+                            description: "Informe global más actualizado sobre la relevancia de la educación como contrato social.",
+                            link: "https://unesdoc.unesco.org/ark:/48223/pf0000379381_spa"
+                        },
+                        {
+                            id: "movilidad-social",
+                            label: "Video:\nMovilidad Social",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "📈",
+                            description: "La educación como motor de movilidad social y desarrollo humano.",
+                            link: "https://www.youtube.com/watch?v=feFXuanzq0A"
+                        },
+                        {
+                            id: "ciudadania",
+                            label: "Formación del\nCiudadano S.XXI",
+                            level: 2,
+                            type: "hexagon",
+                            icon: "🏛️",
+                            description: "Análisis universitario sobre la importancia de la IE en la formación ciudadana.",
+                            link: "https://revistauls.lasalle.edu.co/files-articles/ruls/vol2013/iss61/12/fulltext.pdf"
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // Variables globales
+        let scale = 0.85; // Escala inicial optimizada para ver todo
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startX, startY;
+        let collapsedNodes = new Set();
+        let nodePositions = new Map();
+
+        const svg = document.getElementById('mindmap-svg');
+        const container = document.getElementById('mindmap-container');
+        const tooltip = document.getElementById('tooltip');
+        const loader = document.getElementById('loader');
+
+        // Funciones de geometría
+        function getHexagonPoints(x, y, size) {
+            const points = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i - Math.PI / 2;
+                points.push(`${x + size * Math.cos(angle)},${y + size * Math.sin(angle)}`);
+            }
+            return points.join(' ');
+        }
+
+        function getTrianglePoints(x, y, size) {
+            const height = size * Math.sqrt(3) / 2;
+            return `${x},${y - height} ${x - size},${y + height/2} ${x + size},${y + height/2}`;
+        }
+
+        // Calcular posiciones de nodos (layout radial optimizado)
+        function calculateLayout(data, centerX, centerY) {
+            const positions = new Map();
+            const levelRadius = [0, 200, 360, 520];
+            
+            function traverse(node, level, angle, parentAngle, index, totalSiblings) {
+                const radius = levelRadius[level] || 500;
+                let x, y;
+                
+                if (level === 0) {
+                    x = centerX;
+                    y = centerY;
+                } else {
+                    const spread = level === 1 ? Math.PI * 2 : Math.PI / 1.5;
+                    const startAngle = parentAngle - spread / 2;
+                    const angleStep = spread / (totalSiblings || 1);
+                    const finalAngle = startAngle + angleStep * (index + 0.5);
+                    
+                    x = centerX + radius * Math.cos(finalAngle);
+                    y = centerY + radius * Math.sin(finalAngle);
+                }
+                
+                positions.set(node.id, { x, y, level, angle: level === 0 ? 0 : angle });
+                
+                if (node.children && !collapsedNodes.has(node.id)) {
+                    node.children.forEach((child, i) => {
+                        const childAngle = level === 0 ? (Math.PI * 2 / node.children.length) * i : angle;
+                        traverse(child, level + 1, childAngle, level === 0 ? childAngle : parentAngle, i, node.children.length);
+                    });
+                }
+            }
+            
+            traverse(data, 0, 0, 0, 0, 0);
+            return positions;
+        }
+
+        // Renderizar el mapa mental
+        function render() {
+            const rect = container.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            nodePositions = calculateLayout(mindmapData, centerX, centerY);
+            
+            let svgContent = '';
+            
+            // Dibujar conexiones
+            function drawConnections(node) {
+                if (node.children && !collapsedNodes.has(node.id)) {
+                    const parentPos = nodePositions.get(node.id);
+                    node.children.forEach(child => {
+                        const childPos = nodePositions.get(child.id);
+                        if (parentPos && childPos) {
+                            const midX = (parentPos.x + childPos.x) / 2;
+                            const midY = (parentPos.y + childPos.y) / 2;
+                            const d = `M${parentPos.x},${parentPos.y} Q${midX},${midY} ${childPos.x},${childPos.y}`;
+                            
+                            svgContent += `<path class="connection" d="${d}" />`;
+                        }
+                        drawConnections(child);
+                    });
+                }
+            }
+            
+            drawConnections(mindmapData);
+            
+            // Dibujar nodos
+            function drawNodes(node) {
+                const pos = nodePositions.get(node.id);
+                if (!pos) return;
+                
+                const size = node.level === 0 ? 90 : (node.level === 1 ? 70 : 50);
+                let shape;
+                
+                if (node.type === 'hexagon') {
+                    shape = `<polygon points="${getHexagonPoints(pos.x, pos.y, size)}" class="node-shape" />`;
+                } else if (node.type === 'triangle') {
+                    shape = `<polygon points="${getTrianglePoints(pos.x, pos.y, size)}" class="node-shape" />`;
+                } else {
+                    shape = `<circle cx="${pos.x}" cy="${pos.y}" r="${size}" class="node-shape" />`;
+                }
+                
+                const hasChildren = node.children && node.children.length > 0;
+                const isCollapsed = collapsedNodes.has(node.id);
+                
+                svgContent += `
+                    <g class="node-group level-${node.level}" 
+                       data-id="${node.id}"
+                       onclick="handleNodeClick('${node.id}', event)"
+                       onmouseenter="showTooltip(event, '${node.id}')"
+                       onmouseleave="hideTooltip()"
+                       onmousedown="startDrag(event)">
+                        ${shape}
+                        <text x="${pos.x}" y="${pos.y - 8}" class="node-icon">${node.icon}</text>
+                        <text x="${pos.x}" y="${pos.y + 12}" class="node-text">${node.label.replace(/\n/g, ' ')}</text>
+                        ${hasChildren ? `<circle cx="${pos.x + size * 0.7}" cy="${pos.y - size * 0.7}" r="10" fill="${isCollapsed ? '#FF6B35' : '#228B22'}" stroke="white" stroke-width="2" /><text x="${pos.x + size * 0.7}" y="${pos.y - size * 0.7 + 4}" text-anchor="middle" fill="white" font-size="10" font-weight="bold" pointer-events="none">${isCollapsed ? '+' : '−'}</text>` : ''}
+                    </g>
+                `;
+                
+                if (node.children && !isCollapsed) {
+                    node.children.forEach(drawNodes);
+                }
+            }
+            
+            drawNodes(mindmapData);
+            
+            svg.innerHTML = svgContent;
+            updateTransform();
+        }
+
+        // Interacciones
+        function handleNodeClick(id, event) {
+            event.stopPropagation();
+            const node = findNode(mindmapData, id);
+            
+            if (node && node.children) {
+                if (collapsedNodes.has(id)) {
+                    collapsedNodes.delete(id);
+                } else {
+                    collapsedNodes.add(id);
+                }
+                render();
+            }
+            
+            if (node && node.link && node.link !== '#') {
+                window.open(node.link, '_blank');
+            }
+        }
+
+        function findNode(root, id) {
+            if (root.id === id) return root;
+            if (root.children) {
+                for (let child of root.children) {
+                    const found = findNode(child, id);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        function showTooltip(event, id) {
+            const node = findNode(mindmapData, id);
+            if (node && node.description) {
+                tooltip.innerHTML = `<strong style="color:#FFD700">${node.label.replace(/\n/g, ' ')}</strong><br><br>${node.description}`;
+                tooltip.style.left = Math.min(event.pageX + 15, window.innerWidth - 300) + 'px';
+                tooltip.style.top = Math.min(event.pageY + 15, window.innerHeight - 150) + 'px';
+                tooltip.classList.add('active');
+            }
+        }
+
+        function hideTooltip() {
+            tooltip.classList.remove('active');
+        }
+
+        // Drag and Drop
+        function startDrag(event) {
+            if (event.button !== 0) return;
+            isDragging = true;
+            startX = event.clientX - translateX;
+            startY = event.clientY - translateY;
+            container.classList.add('grabbing');
+            event.preventDefault();
+        }
+
+        container.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateTransform();
+            }
+        });
+
+        container.addEventListener('mouseup', () => {
+            isDragging = false;
+            container.classList.remove('grabbing');
+        });
+
+        container.addEventListener('mouseleave', () => {
+            isDragging = false;
+            container.classList.remove('grabbing');
+        });
+
+        // Zoom con rueda del mouse
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            scale *= delta;
+            scale = Math.max(0.3, Math.min(3, scale));
+            updateTransform();
+        });
+
+        function updateTransform() {
+            svg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        }
+
+        function zoomIn() {
+            scale *= 1.2;
+            updateTransform();
+        }
+
+        function zoomOut() {
+            scale *= 0.8;
+            updateTransform();
+        }
+
+        function resetZoom() {
+            scale = 0.85;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+        }
+
+        // Búsqueda predictiva
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+        let allNodes = [];
+
+        function collectNodes(node) {
+            allNodes.push(node);
+            if (node.children) {
+                node.children.forEach(collectNodes);
+            }
+        }
+
+        collectNodes(mindmapData);
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            if (query.length < 2) {
+                searchResults.classList.remove('active');
+                return;
+            }
+            
+            const matches = allNodes.filter(n => 
+                n.label.toLowerCase().includes(query) || 
+                (n.description && n.description.toLowerCase().includes(query))
+            );
+            
+            searchResults.innerHTML = matches.map(n => 
+                `<div class="search-item" onclick="focusNode('${n.id}')">${n.label.replace(/\n/g, ' ')}</div>`
+            ).join('');
+            
+            searchResults.classList.add('active');
+        });
+
+        function focusNode(id) {
+            const pos = nodePositions.get(id);
+            if (pos) {
+                const rect = container.getBoundingClientRect();
+                translateX = rect.width/2 - pos.x * scale;
+                translateY = rect.height/2 - pos.y * scale;
+                updateTransform();
+                
+                let parent = findParent(mindmapData, id);
+                while (parent) {
+                    collapsedNodes.delete(parent.id);
+                    parent = findParent(mindmapData, parent.id);
+                }
+                render();
+                
+                setTimeout(() => {
+                    const nodeEl = document.querySelector(`[data-id="${id}"]`);
+                    if (nodeEl) {
+                        nodeEl.style.transform = 'scale(1.3)';
+                        setTimeout(() => {
+                            nodeEl.style.transform = 'scale(1)';
+                        }, 300);
+                    }
+                }, 100);
+            }
+            searchResults.classList.remove('active');
+            searchInput.value = '';
+        }
+
+        function findParent(root, id, parent = null) {
+            if (root.id === id) return parent;
+            if (root.children) {
+                for (let child of root.children) {
+                    const found = findParent(child, id, root);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        // Modal
+        function openModal() {
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeModal();
+        });
+
+        // Créditos
+        function toggleCredits() {
+            document.getElementById('creditsContainer').classList.toggle('show');
+        }
+
+        // Inicialización optimizada
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                loader.style.display = 'none';
+                render();
+                // Ajuste inicial para ver todo el mapa
+                const rect = container.getBoundingClientRect();
+                translateY = rect.height * 0.05;
+                updateTransform();
+            }, 800);
+        });
+
+        window.addEventListener('resize', () => {
+            render();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-container')) {
+                searchResults.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
