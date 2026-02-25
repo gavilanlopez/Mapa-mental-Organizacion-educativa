@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Mental - Organizaciones Educativas UPEL</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            cursor: grab;
+        }
+
+        #container:active {
+            cursor: grabbing;
+        }
+
+        /* SVG Styles */
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .node {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        /* Efecto hover sencillo: solo resaltado de borde */
+        .node:hover .node-shape {
+            stroke: #fbbf24;
+            stroke-width: 4px;
+            filter: brightness(1.1);
+        }
+
+        /* Efecto sutil en icono */
+        .node:hover .node-icon {
+            transform: scale(1.1);
+        }
+
+        .node-shape {
+            transition: all 0.3s ease;
+            stroke-width: 2px;
+            stroke: #fff;
+        }
+
+        .link {
+            fill: none;
+            stroke: #64748b;
+            stroke-width: 2px;
+            stroke-opacity: 0.6;
+        }
+
+        .node-label {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            fill: #1e293b;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            font-size: 12px;
+        }
+
+        .node-icon {
+            pointer-events: none;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+
+        /* Shapes con gradientes */
+        .shape-rect { fill: url(#grad-red); }
+        .shape-diamond { fill: url(#grad-yellow); }
+        .shape-circle { fill: url(#grad-blue); }
+        .shape-triangle { fill: url(#grad-red-dark); }
+        .shape-pentagon { fill: url(#grad-blue-dark); }
+
+        /* Indicador de colapso */
+        .collapse-indicator {
+            transition: all 0.3s ease;
+        }
+
+        /* Fixed UI Elements */
+        .ui-fixed {
+            position: fixed;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            padding: 15px;
+        }
+
+        /* Search Bar - Top Left */
+        #search-container {
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 2px solid #e2e8f0;
+        }
+
+        #search-input {
+            border: none;
+            outline: none;
+            padding: 8px 12px;
+            font-size: 14px;
+            width: 250px;
+            border-radius: 8px;
+            background: transparent;
+        }
+
+        #search-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        #search-btn:hover {
+            background: #2563eb;
+        }
+
+        #search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            margin-top: 5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .suggestion-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #e2e8f0;
+            transition: background 0.2s;
+        }
+
+        .suggestion-item:hover {
+            background: #f1f5f9;
+        }
+
+        /* Logo UPEL - Top Right */
+        #logo-upel {
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            color: white;
+            padding: 15px 25px;
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            border: 3px solid #fbbf24;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        #logo-upel::after {
+            content: "UNIVERSIDAD";
+            display: block;
+            font-size: 10px;
+            letter-spacing: 4px;
+            opacity: 0.9;
+            margin-top: 2px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Credits - Bottom Left */
+        #credits {
+            bottom: 20px;
+            left: 20px;
+            max-width: 300px;
+            border-left: 4px solid #ef4444;
+        }
+
+        #credits h3 {
+            color: #1e293b;
+            font-size: 14px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .credit-name {
+            font-size: 12px;
+            color: #64748b;
+            margin: 4px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .credit-name::before {
+            content: "▸";
+            position: absolute;
+            left: 8px;
+            color: #ef4444;
+        }
+
+        /* References - Bottom Right */
+        #references {
+            bottom: 20px;
+            right: 20px;
+            max-width: 350px;
+            border-right: 4px solid #0ea5e9;
+            cursor: pointer;
+            max-height: 60px;
+            overflow: hidden;
+            transition: max-height 0.5s ease;
+        }
+
+        #references.expanded {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        #references h3 {
+            color: #1e293b;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .ref-item {
+            font-size: 11px;
+            color: #475569;
+            margin: 8px 0;
+            padding: 8px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border-left: 3px solid #0ea5e9;
+            line-height: 1.4;
+        }
+
+        /* Notification */
+        #notification {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            transform: translateX(400px);
+            transition: transform 0.4s ease;
+            z-index: 3000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #notification.show {
+            transform: translateX(0);
+        }
+
+        /* Zoom Controls */
+        #zoom-controls {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: white;
+            color: #334155;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-btn:hover {
+            background: #3b82f6;
+            color: white;
+        }
+
+        /* Legend */
+        #legend {
+            position: fixed;
+            left: 20px;
+            top: 100px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        #legend h4 {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0;
+            font-size: 12px;
+            color: #334155;
+        }
+
+        .legend-shape {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #search-container {
+                width: calc(100% - 40px);
+                max-width: 300px;
+            }
+            
+            #logo-upel {
+                font-size: 16px;
+                padding: 10px 15px;
+            }
+            
+            #credits, #references {
+                max-width: 250px;
+                font-size: 11px;
+            }
+        }
+
+        /* Loading Animation */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f5f7fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 5000;
+            transition: opacity 0.5s;
+        }
+
+        .loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Fixed UI Elements -->
+    <div id="search-container" class="ui-fixed">
+        <input type="text" id="search-input" placeholder="Buscar en el mapa...">
+        <button id="search-btn">🔍</button>
+        <div id="search-suggestions"></div>
+    </div>
+
+    <div id="logo-upel" class="ui-fixed">
+        UPEL
+    </div>
+
+    <div id="credits" class="ui-fixed">
+        <h3>👥 Créditos</h3>
+        <div class="credit-name">BARRAGAN GARCIA YANILSEN MILENA</div>
+        <div class="credit-name">MATTOS MANJARRES CESIL ALFONSO</div>
+        <div class="credit-name">MATOS MANJARRES ULISES STANLY</div>
+        <div class="credit-name">MAZ LAPEIRA NINI JOHANNA</div>
+    </div>
+
+    <div id="references" class="ui-fixed" onclick="toggleReferences()">
+        <h3>📚 Referencias Bibliográficas <span style="font-size: 10px; color: #64748b;">(click para expandir)</span></h3>
+        <div class="ref-item">Jiménez, C. R. (2021). La importancia de la comunicación y liderazgo en organizaciones educativas. Revista Gestión en el Siglo XXI, 6(11), 34-52.</div>
+        <div class="ref-item">Mayo, I. C. (2003). La estructura de las organizaciones educativas y sus múltiples implicaciones. Editorial Síntesis.</div>
+        <div class="ref-item">Reales Chacón, L. J. y Arce Aguirre, J. A. (2008). La organización educativa y su cultura. Editorial Universitaria.</div>
+        <div class="ref-item">Rondón, M. y Ammar, M. (2016). Gestión del talento humano en organizaciones educativas. Revista Venezolana de Gerencia, 21(74), 230-248.</div>
+        <div class="ref-item">Santos Guerra, M. Á. (1999). Organización para el desarrollo profesional. Profesorado. Revista de currículum y formación del profesorado, 3(1).</div>
+    </div>
+
+    <!-- Zoom Controls -->
+    <div id="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
+        <button class="zoom-btn" onclick="resetZoom()">⌂</button>
+        <button class="zoom-btn" onclick="zoomOut()">−</button>
+    </div>
+
+    <!-- Legend -->
+    <div id="legend">
+        <h4>Tipos de Recursos</h4>
+        <div class="legend-item">
+            <div class="legend-shape" style="background: linear-gradient(135deg, #ef4444, #dc2626); border-radius: 4px;"></div>
+            <span>Documentos PDF</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-shape" style="background: linear-gradient(135deg, #eab308, #ca8a04); transform: rotate(45deg);"></div>
+            <span>Videos YouTube</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-shape" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); border-radius: 50%;"></div>
+            <span>Enlaces Web</span>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification">
+        <span>✓</span>
+        <span id="notification-text">Abriendo rama...</span>
+    </div>
+
+    <!-- Main Container -->
+    <div id="container"></div>
+
+    <script>
+        // Datos del Mapa Mental
+        const data = {
+            name: "Las Organizaciones Educativas",
+            type: "root",
+            shape: "pentagon",
+            color: "#1e3a8a",
+            icon: "🎓",
+            children: [
+                {
+                    name: "Concepto de Organización",
+                    type: "category",
+                    shape: "rect",
+                    color: "#ef4444",
+                    icon: "📖",
+                    children: [
+                        { name: "Organizaciones Educativas (PDF)", type: "pdf", shape: "rect", color: "#ef4444", icon: "📄", url: "https://cdn1.capacitateparaelempleo.org/cdn_aprende/assets/v8u4z5s.pdf" },
+                        { name: "La Organización Escolar (PDF)", type: "pdf", shape: "rect", color: "#ef4444", icon: "📄", url: "https://www.unter.org.ar/wp-content/uploads/2014/10/GSTN_Gairin-Sallan_2_Unidad_2.pdf" },
+                        { name: "Gestión Educativa (PDF)", type: "pdf", shape: "rect", color: "#ef4444", icon: "📄", url: "https://drive.google.com/file/d/1XQ7mWUR52P7rE0X9xc8ledUAT5mKx2Lb/view?usp=drive_link" },
+                        { name: "¿Qué es una organización? (Video)", type: "video", shape: "diamond", color: "#eab308", icon: "🎥", url: "https://drive.google.com/file/d/1GT_15Rcc1hHlaBx1HMM5vqO8QT_oNREX/view?usp=sharing" },
+                        { name: "Podcast Gestión Educativa", type: "audio", shape: "circle", color: "#0ea5e9", icon: "🎧", url: "https://podcasts.apple.com/co/podcast/gesti%C3%B3n-educativa/id1526480742" }
+                    ]
+                },
+                {
+                    name: "Características",
+                    type: "category",
+                    shape: "diamond",
+                    color: "#eab308",
+                    icon: "⭐",
+                    children: [
+                        { name: "Isaac Guzmán Valdivia (YouTube)", type: "video", shape: "diamond", color: "#eab308", icon: "▶️", url: "https://www.youtube.com/watch?v=GgKi3lt20Wg" },
+                        { name: "10 Rasgos de la Escuela (PDF)", type: "pdf", shape: "rect", color: "#ef4444", icon: "📊", url: "https://drive.google.com/file/d/1XQ7mWUR52P7rE0X9xc8ledUAT5mKx2Lb/view?usp=sharing" },
+                        { name: "Sentido de las Organizaciones", type: "web", shape: "circle", color: "#0ea5e9", icon: "🌐", url: "https://revistauls.lasalle.edu.co/files-articles/ruls/vol2013/iss61/12/fulltext.pdf" },
+                        { name: "Escuela como Organización (PDF)", type: "pdf", shape: "rect", color: "#ef4444", icon: "📚", url: "https://www.google.com/search?q=La-Escuela-como-una-Organizacin-que-aprende-2018.pdf" },
+                        { name: "Cultura Organizacional (YouTube)", type: "video", shape: "diamond", color: "#eab308", icon: "🏫", url: "https://www.youtube.com/watch?v=RLm2KgGmHMA" }
+                    ]
+                },
+                {
+                    name: "Elementos Constitutivos",
+                    type: "category",
+                    shape: "circle",
+                    color: "#0ea5e9",
+                    icon: "🧩",
+                    children: [
+                        { name: "Recursos Humanos", type: "subcategory", shape: "triangle", color: "#ef4444", icon: "👥" },
+                        { name: "Recursos Materiales", type: "subcategory", shape: "triangle", color: "#eab308", icon: "🏗️" },
+                        { name: "Recursos Funcionales", type: "subcategory", shape: "triangle", color: "#0ea5e9", icon: "⚙️" },
+                        { name: "Elementos Pedagógicos", type: "subcategory", shape: "triangle", color: "#ef4444", icon: "📚" },
+                        { name: "Cultura Organizativa", type: "subcategory", shape: "triangle", color: "#eab308", icon: "🎭" },
+                        { name: "Proyecto Educativo Institucional", type: "web", shape: "circle", color: "#0ea5e9", icon: "📋", url: "https://revmic.com/index.php/IC/article/view/179/338" },
+                        { name: "Características Visuales (YouTube)", type: "video", shape: "diamond", color: "#eab308", icon: "📺", url: "https://www.youtube.com/watch?v=YZegQXTb8y8" },
+                        { name: "Slideshare Organizaciones", type: "web", shape: "circle", color: "#0ea5e9", icon: "💻", url: "https://es.slideshare.net/slideshow/caracteristicas-que-definen-las-organizaciones-educativas-pptx/273024245" }
+                    ]
+                },
+                {
+                    name: "Importancia",
+                    type: "category",
+                    shape: "triangle",
+                    color: "#ef4444",
+                    icon: "💡",
+                    children: [
+                        { name: "Gestión para Calidad (PDF)", type: "pdf", shape: "rect", color: "#ef4444", icon: "📈", url: "https://drive.google.com/file/d/14xx5WRnxIYrlS_xh6POMikWdBRkmBqpA/view?usp=sharing" },
+                        { name: "Formación del Ciudadano", type: "web", shape: "circle", color: "#0ea5e9", icon: "🎓", url: "https://revistauls.lasalle.edu.co/files-articles/ruls/vol2013/iss61/12/fulltext.pdf" },
+                        { name: "Importancia Académica (YouTube)", type: "video", shape: "diamond", color: "#eab308", icon: "🎬", url: "https://www.youtube.com/watch?v=Q3QTcufs94E" },
+                        { name: "Informe UNESCO", type: "web", shape: "circle", color: "#0ea5e9", icon: "🌍", url: "https://unesdoc.unesco.org/ark:/48223/pf0000379381_spa" },
+                        { name: "Educación y Movilidad Social", type: "video", shape: "diamond", color: "#eab308", icon: "🚀", url: "https://www.youtube.com/watch?v=feFXuanzq0A" }
+                    ]
+                }
+            ]
+        };
+
+        // Configuración
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const nodeWidth = 140;
+        const nodeHeight = 60;
+        const levelHeight = 180;
+
+        // Variables globales
+        let svg, g, zoom, root, nodes, links;
+        let i = 0;
+        let transform = d3.zoomIdentity;
+
+        // Definiciones de gradientes
+        const defs = {
+            red: ["#ef4444", "#dc2626"],
+            yellow: ["#eab308", "#ca8a04"],
+            blue: ["#0ea5e9", "#0284c7"],
+            redDark: ["#dc2626", "#b91c1c"],
+            blueDark: ["#0284c7", "#0369a1"]
+        };
+
+        // Inicialización
+        function init() {
+            // Crear SVG
+            svg = d3.select("#container").append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Definir gradientes
+            const gradients = svg.append("defs");
+            
+            Object.keys(defs).forEach(key => {
+                const grad = gradients.append("linearGradient")
+                    .attr("id", `grad-${key}`)
+                    .attr("x1", "0%")
+                    .attr("y1", "0%")
+                    .attr("x2", "100%")
+                    .attr("y2", "100%");
+                
+                grad.append("stop")
+                    .attr("offset", "0%")
+                    .attr("stop-color", defs[key][0]);
+                
+                grad.append("stop")
+                    .attr("offset", "100%")
+                    .attr("stop-color", defs[key][1]);
+            });
+
+            // Grupo principal con zoom
+            g = svg.append("g");
+
+            // Configurar zoom
+            zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                    transform = event.transform;
+                });
+
+            svg.call(zoom)
+                .on("dblclick.zoom", null);
+
+            // Procesar datos
+            root = d3.hierarchy(data);
+            
+            // Calcular posiciones iniciales
+            root.x0 = width / 2;
+            root.y0 = 100;
+
+            // Colapsar nodos de nivel 2 inicialmente
+            root.children.forEach(collapse);
+
+            // Actualizar visualización
+            update(root);
+
+            // Centrar vista inicial
+            centerNode(root);
+
+            // Ocultar loading
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+            }, 500);
+
+            // Configurar búsqueda
+            setupSearch();
+        }
+
+        function collapse(d) {
+            if (d.children) {
+                d._children = d.children;
+                d._children.forEach(collapse);
+                d.children = null;
+            }
+        }
+
+        function getGradientId(color) {
+            if (color === "#ef4444") return "url(#grad-red)";
+            if (color === "#eab308") return "url(#grad-yellow)";
+            if (color === "#0ea5e9") return "url(#grad-blue)";
+            if (color === "#dc2626") return "url(#grad-red-dark)";
+            if (color === "#0284c7") return "url(#grad-blue-dark)";
+            return color;
+        }
+
+        function update(source) {
+            // Calcular layout de árbol
+            const treeLayout = d3.tree()
+                .nodeSize([nodeWidth + 40, levelHeight])
+                .separation((a, b) => (a.parent == b.parent ? 1 : 1.5));
+
+            const treeData = treeLayout(root);
+
+            nodes = treeData.descendants();
+            links = treeData.links();
+
+            // Ajustar profundidad para diseño vertical
+            nodes.forEach(d => {
+                d.y = d.depth * levelHeight + 100;
+                // Escalar tamaño según profundidad
+                const scale = Math.max(0.6, 1 - (d.depth * 0.15));
+                d.width = nodeWidth * scale;
+                d.height = nodeHeight * scale;
+                d.fontSize = Math.max(10, 14 - (d.depth * 2));
+            });
+
+            // Nodos
+            const node = g.selectAll(".node")
+                .data(nodes, d => d.id || (d.id = ++i));
+
+            const nodeEnter = node.enter().append("g")
+                .attr("class", "node")
+                .attr("transform", d => `translate(${source.x0},${source.y0})`)
+                .on("click", click)
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            // Dibujar formas según tipo
+            nodeEnter.each(function(d) {
+                const el = d3.select(this);
+                const w = d.width || nodeWidth;
+                const h = d.height || nodeHeight;
+                const fill = getGradientId(d.data.color);
+                
+                switch(d.data.shape) {
+                    case 'rect':
+                        el.append("rect")
+                            .attr("class", "node-shape")
+                            .attr("width", w)
+                            .attr("height", h)
+                            .attr("x", -w/2)
+                            .attr("y", -h/2)
+                            .attr("rx", 8)
+                            .attr("fill", fill);
+                        break;
+                    case 'diamond':
+                        el.append("polygon")
+                            .attr("class", "node-shape")
+                            .attr("points", `0,${-h/2} ${w/2},0 0,${h/2} ${-w/2},0`)
+                            .attr("fill", fill);
+                        break;
+                    case 'circle':
+                        el.append("circle")
+                            .attr("class", "node-shape")
+                            .attr("r", Math.min(w, h)/2)
+                            .attr("fill", fill);
+                        break;
+                    case 'triangle':
+                        el.append("polygon")
+                            .attr("class", "node-shape")
+                            .attr("points", `0,${-h/2} ${w/2},${h/2} ${-w/2},${h/2}`)
+                            .attr("fill", fill);
+                        break;
+                    case 'pentagon':
+                        const pts = [];
+                        for(let i=0; i<5; i++) {
+                            const angle = (i * 72 - 90) * Math.PI / 180;
+                            const r = Math.min(w, h)/2;
+                            pts.push(`${Math.cos(angle)*r},${Math.sin(angle)*r}`);
+                        }
+                        el.append("polygon")
+                            .attr("class", "node-shape")
+                            .attr("points", pts.join(" "))
+                            .attr("fill", fill)
+                            .attr("stroke", "#fbbf24")
+                            .attr("stroke-width", 3);
+                        break;
+                }
+
+                // Icono
+                el.append("text")
+                    .attr("class", "node-icon")
+                    .attr("dy", -5)
+                    .text(d.data.icon || "•")
+                    .style("font-size", `${Math.max(16, 24 - d.depth * 4)}px`);
+
+                // Etiqueta
+                el.append("text")
+                    .attr("class", "node-label")
+                    .attr("dy", d.depth === 0 ? 15 : 12)
+                    .style("font-size", `${d.fontSize}px`)
+                    .each(function(d) {
+                        const text = d3.select(this);
+                        const words = d.data.name.split(/\s+/);
+                        if (words.length > 2 && d.depth > 0) {
+                            text.text("");
+                            text.append("tspan")
+                                .attr("x", 0)
+                                .attr("dy", "0.3em")
+                                .text(words.slice(0, Math.ceil(words.length/2)).join(" "));
+                            text.append("tspan")
+                                .attr("x", 0)
+                                .attr("dy", "1.2em")
+                                .text(words.slice(Math.ceil(words.length/2)).join(" "));
+                        } else {
+                            text.text(d.data.name);
+                        }
+                    });
+            });
+
+            // Transición de nodos
+            const nodeUpdate = node.merge(nodeEnter).transition()
+                .duration(750)
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+
+            // Indicador de colapsado
+            nodeEnter.filter(d => d.children || d._children)
+                .append("circle")
+                .attr("class", "collapse-indicator")
+                .attr("r", 6)
+                .attr("cy", d => (d.height || nodeHeight)/2 + 5)
+                .attr("fill", "#fff")
+                .attr("stroke", "#334155")
+                .attr("stroke-width", 2);
+
+            node.selectAll(".collapse-indicator")
+                .attr("fill", d => d._children ? "#3b82f6" : "#fff");
+
+            // Links con curvas Bezier
+            const link = g.selectAll(".link")
+                .data(links, d => d.target.id);
+
+            const linkEnter = link.enter().insert("path", "g")
+                .attr("class", "link")
+                .attr("d", d => {
+                    const o = {x: source.x0, y: source.y0};
+                    return diagonal(o, o);
+                });
+
+            link.merge(linkEnter).transition()
+                .duration(750)
+                .attr("d", d => diagonal(d.source, d.target));
+
+            link.exit().transition()
+                .duration(750)
+                .attr("d", d => {
+                    const o = {x: source.x, y: source.y};
+                    return diagonal(o, o);
+                })
+                .remove();
+
+            // Guardar posiciones antiguas
+            nodes.forEach(d => {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+
+            node.exit().transition()
+                .duration(750)
+                .attr("transform", d => `translate(${source.x},${source.y})`)
+                .remove();
+        }
+
+        function diagonal(s, d) {
+            return `M${s.x},${s.y + (s.height || nodeHeight)/2}
+                    C${s.x},${s.y + (s.height || nodeHeight)/2 + levelHeight/2}
+                     ${d.x},${d.y - (d.height || nodeHeight)/2 - levelHeight/2}
+                     ${d.x},${d.y - (d.height || nodeHeight)/2}`;
+        }
+
+        function click(event, d) {
+            if (d.data.url) {
+                window.open(d.data.url, '_blank');
+                showNotification(`Abriendo: ${d.data.name}`);
+            } else if (d.children || d._children) {
+                if (d.children) {
+                    d._children = d.children;
+                    d.children = null;
+                    showNotification("Colapsando rama...");
+                } else {
+                    d.children = d._children;
+                    d._children = null;
+                    showNotification("Abriendo rama...");
+                }
+                update(d);
+            }
+        }
+
+        // Drag functions
+        function dragstarted(event, d) {
+            d3.select(this).raise().style("cursor", "grabbing");
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+            d3.select(this).attr("transform", `translate(${event.x},${event.y})`);
+            
+            // Actualizar links conectados
+            g.selectAll(".link").filter(l => l.source === d || l.target === d)
+                .attr("d", l => {
+                    const source = l.source === d ? {x: event.x, y: event.y, height: l.source.height} : l.source;
+                    const target = l.target === d ? {x: event.x, y: event.y, height: l.target.height} : l.target;
+                    return diagonal(source, target);
+                });
+        }
+
+        function dragended(event, d) {
+            d3.select(this).style("cursor", "pointer");
+            d.x = d.fx;
+            d.y = d.fy;
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // Notification
+        function showNotification(text) {
+            const notif = document.getElementById('notification');
+            document.getElementById('notification-text').textContent = text;
+            notif.classList.add('show');
+            setTimeout(() => notif.classList.remove('show'), 3000);
+        }
+
+        // Zoom controls
+        function zoomIn() {
+            svg.transition().duration(500).call(zoom.scaleBy, 1.3);
+        }
+
+        function zoomOut() {
+            svg.transition().duration(500).call(zoom.scaleBy, 0.7);
+        }
+
+        function resetZoom() {
+            svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+            centerNode(root);
+        }
+
+        function centerNode(source) {
+            const t = d3.zoomIdentity
+                .translate(width/2, 100)
+                .scale(1);
+            svg.transition().duration(750).call(zoom.transform, t);
+        }
+
+        // Búsqueda predictiva
+        function setupSearch() {
+            const input = document.getElementById('search-input');
+            const suggestions = document.getElementById('search-suggestions');
+            
+            input.addEventListener('input', (e) => {
+                const val = e.target.value.toLowerCase();
+                if (val.length < 2) {
+                    suggestions.style.display = 'none';
+                    return;
+                }
+                
+                const matches = [];
+                root.descendants().forEach(d => {
+                    if (d.data.name.toLowerCase().includes(val)) {
+                        matches.push(d);
+                    }
+                });
+                
+                if (matches.length > 0) {
+                    suggestions.innerHTML = matches.slice(0, 5).map(d => 
+                        `<div class="suggestion-item" onclick="goToNode(${d.id})">${d.data.name}</div>`
+                    ).join('');
+                    suggestions.style.display = 'block';
+                } else {
+                    suggestions.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#search-container')) {
+                    suggestions.style.display = 'none';
+                }
+            });
+        }
+
+        function goToNode(id) {
+            const node = root.descendants().find(d => d.id === id);
+            if (node) {
+                // Expandir padres si es necesario
+                let current = node;
+                while (current.parent) {
+                    if (current.parent._children) {
+                        current.parent.children = current.parent._children;
+                        current.parent._children = null;
+                    }
+                    current = current.parent;
+                }
+                update(root);
+                
+                // Centrar en nodo
+                const scale = 1.5;
+                const t = d3.zoomIdentity
+                    .translate(width/2 - node.x * scale, height/2 - node.y * scale)
+                    .scale(scale);
+                svg.transition().duration(750).call(zoom.transform, t);
+                
+                showNotification(`Navegando a: ${node.data.name}`);
+            }
+            document.getElementById('search-suggestions').style.display = 'none';
+        }
+
+        // Toggle referencias
+        function toggleReferences() {
+            const ref = document.getElementById('references');
+            ref.classList.toggle('expanded');
+        }
+
+        // Zoom con rueda del mouse
+        document.getElementById('container').addEventListener('wheel', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+
+        // Iniciar
+        window.addEventListener('load', init);
+        window.addEventListener('resize', () => {
+            location.reload();
+        });
+    </script>
+</body>
+</html>
